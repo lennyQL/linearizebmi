@@ -4,9 +4,9 @@ function [LMI,BMI,Q0,L,N,R] = bmiparser(S, vlist, v0list, G)
 %   S: BMIの文字列
 %       ex) "P*A+P*B*K*C+A'*P'+C'*K'*B'*P'"
 %   vlist: 決定変数の文字列
-%       ex) ["P","K"]
+%       ex) {'P','K'}
 %   v0list: 暫定解の文字列
-%       ex) ["P0","K0"]
+%       ex) {'P0','K0'}
 %   G: gammaの定数倍，デフォルトで単位行列
 %
 %
@@ -19,13 +19,14 @@ function [LMI,BMI,Q0,L,N,R] = bmiparser(S, vlist, v0list, G)
 %       A = rand(2,3)
 %       X0= rand(2,2) 
 %       Y0= rand(3,2)
-%       LMI = bmiparser("X*A*Y+Y'*A'*X'",["X","Y"],["X0","Y0"])
+%       LMI = bmiparser("X*A*Y+Y'*A'*X'",{'X','Y'},{'X0','Y0'})
 %
 %
 %   現段階：
-%       ・演算子は，+,*,' ,しか実装できていない
-%       ・()は使えない
-%       ・スカラー倍にまだ対応できていない
+%       ・()を使った分配法則や転置が可能, ()の入れ子は対応できていない
+%       ・数値を直接記述した場合のスカラー倍にまだ対応できていない, 変数名は可能
+%       ・行列[]の和による記述が可能
+%       ・[]の入れ子にまだ対応できていない
 %
 
 % 文字列を文字ベクトルに変換
@@ -39,6 +40,27 @@ Xstr =vlist{1};
 Ystr =vlist{2};
 X0str=v0list{1};
 Y0str=v0list{2};
+
+
+%% 字句解析の前処理
+
+% 空文字を削減
+S = regexprep(S,'(\s+)',' ');
+
+% 括弧の処理
+% eye(2,2)のように，関数の括弧は処理しない
+while regexp(S,'(?<!\w+)\((.*)\)')
+    % 括弧()と変数の積の処理，分配法則
+    S = divbracket(S);
+
+    % 括弧の転置の処理()',分配法則+積順序の逆転
+    S = divbracketT(S);
+end
+% デバッグ用
+% S = divbracket(S)
+% S = divbracketT(S)
+% S = divbracket(S)
+% S
 
 
 %% 字句解析
@@ -56,6 +78,9 @@ columlist = {}; % 行のリスト，termlistをこの中に入れる
 colnum = 1;     % 行数
 rownum = 1;     % 列数
 
+% 複数行列の和に対応
+matrixlist = {}; % 行列[...]の字句解析結果(smatrix)を格納する, 最終的に1つのsmatrixにする
+
 % デバッグ用:
 % disp("==========")
 % 入力文字列を1文字ずつ解析
@@ -67,9 +92,9 @@ for i=1:strlength(S)
     
     % 変数の文字列の場合
     % ex) 'var' = 'v'+'a'+'r' 
-    % 正規表現[a-zA-Z_0-9]
+    % 正規表現[a-zA-Z_0-9], (), '
     % ex) a0は変数だが，0aは変数でない -> どう処理する？
-    if regexp(S(i), '\w')
+    if regexp(S(i), "[\w\(\,\)\']")
         % どこまでが変数名かを推定する
         % 変数名の更新
         varstr = varstr + S(i);
@@ -79,6 +104,16 @@ for i=1:strlength(S)
             [varlist, varstr] = updateList(varlist,varstr);
             [termlist, varlist] = updateList(termlist,varlist,1);
             [columlist, termlist] = updateList(columlist,termlist);
+            %
+            % smatrixをmatrixlistに追加
+            if colnum > 1 || rownum > 1
+                % ブロック行列の場合
+                smatrix = reshape(columlist,colnum,rownum).';
+            else
+                % そうでない場合
+                smatrix = columlist;
+            end
+            [matrixlist,smatrix] = updateList(matrixlist,smatrix);
         end
         continue
     end
@@ -115,16 +150,16 @@ for i=1:strlength(S)
     % シングルクオーテーションの場合
     % ex) A'*B'：行列の転置をする時に使う
     % 現状 \w と同じ処理
-    if regexp(S(i), "\'")
-        varstr = varstr + S(i);
-        if i == strlength(S) 
-            % 終端文字の場合，termstrをtermlistに追加
-            [varlist, varstr] = updateList(varlist,varstr);
-            [termlist, varlist] = updateList(termlist,varlist,1);
-            [columlist, termlist] = updateList(columlist,termlist);
-        end
-        continue
-    end
+%     if regexp(S(i), "\'")
+%         varstr = varstr + S(i);
+%         if i == strlength(S) 
+%             % 終端文字の場合，termstrをtermlistに追加
+%             [varlist, varstr] = updateList(varlist,varstr);
+%             [termlist, varlist] = updateList(termlist,varlist,1);
+%             [columlist, termlist] = updateList(columlist,termlist);
+%         end
+%         continue
+%     end
         
     % 空文字の場合
     % ex) '[A B]' : 行列の列を生成するときに使う
@@ -132,7 +167,7 @@ for i=1:strlength(S)
         if ~isempty(regexp(S(i-1), '\s', 'once')) ||...
            ~isempty(regexp(S(i), '[\*\+]', 'once'))   
             continue
-        elseif regexp(S(i-1), "[\w\']")
+        elseif regexp(S(i-1), "[\w\'\)]")
             [varlist, varstr] = updateList(varlist,varstr);
             [termlist, varlist] = updateList(termlist,varlist,1);
             [columlist, termlist] = updateList(columlist,termlist);
@@ -157,6 +192,14 @@ for i=1:strlength(S)
     % 制約は行列
     if regexp(S(i), '\[')
         % disp("Helo")
+        % 行列を解析するための初期化
+        termlist = {}; % 項のリスト
+        varlist = {};  % 変数定数の配列(一時的)
+        varstr = "";   % 1つの変数の文字列(一時的)
+        columlist = {}; % 行のリスト
+        colnum = 1;     % 行数
+        rownum = 1;     % 列数
+        continue
     end
     % ]の場合
     % 行列おわり
@@ -165,21 +208,62 @@ for i=1:strlength(S)
         [varlist, varstr] = updateList(varlist,varstr);
         [termlist, varlist] = updateList(termlist,varlist,1);
         [columlist, termlist] = updateList(columlist,termlist);
+        %
+        % smatrixの生成
+        % Sの最終形態(cellの行列), columlistを縦に並べたもの
+        if colnum > 1 || rownum > 1
+            % ブロック行列の場合
+            smatrix = reshape(columlist,colnum,rownum).';
+        else
+            % そうでない場合
+            smatrix = columlist;
+        end
+        % smatrixをmatrixlistに追加
+        [matrixlist,smatrix] = updateList(matrixlist,smatrix);
+        continue
     end
+    
 end
-% smatrixの生成
-% Sの最終形態(cellの行列), columlistを縦に並べたもの
-if colnum > 1 || rownum > 1
-    % ブロック行列の場合
-    smatrix = reshape(columlist,colnum,rownum).';
-else
-    % そうでない場合
-    smatrix = columlist;
-end
-
+% デバッグ
 % columlist
+% columlist{1,5}{1,1}
+% colnum, rownum
 % smatrix = cat(2,cat(2,smatrix{1,1},smatrix{2,1}),smatrix{3,1});
 % smatrix = reshape(smatrix,[colnum,rownum])
+
+% smatrixの生成
+% Sの最終形態(cellの行列), columlistを縦に並べたもの
+% if colnum > 1 || rownum > 1
+%     % ブロック行列の場合
+%     smatrix = reshape(columlist,colnum,rownum).';
+% else
+%     % そうでない場合
+%     smatrix = columlist;
+% end
+% cat(2,matrixlist,smatrix)
+% cat(2,matrixlist,{smatrix})
+% matrixlist
+% matrixlist{1,1}
+% matrixlist{1,1}{1,1}
+% matrixlist{1,1}{1,1}{1,1}
+% matrixlist{1,1}{1,1}{1,1}{1,1}
+
+
+
+%% 行列(matrixlist)の結合
+for i=1:length(matrixlist)
+    mat = matrixlist{1,i};
+    if i == 1
+        smatrix = mat;
+        continue
+    end 
+    % 各smatrixの項を結合する
+    for col=1:size(mat,1)
+        for row=1:size(mat,2)
+            smatrix{col,row} = cat(1,smatrix{col,row},mat{col,row});
+        end 
+    end
+end
 
 % デバッグ用:
 % smatrix
@@ -195,6 +279,7 @@ end
 % smatrix{1,2}
 % columlist{1,3}{2,1}
 % smatrix{1,3}{2,1}
+
 
 
 %% heの分離
@@ -388,6 +473,10 @@ end
 
 %% 逐次LMIに変形してCalc
 % evalinを使う，workspaceの変数の値の取得
+% 使用例:
+%   evalin('base','X'): workspaceの変数名Xの値を取得する
+%   evalin('base','eye(p1)'): workspaceの変数の値を使って関数eye(p1)を実行する
+
 
 
 % 決定変数の取得
@@ -440,6 +529,13 @@ for col=1:size(Q,1)
                 if var == "-"
                     qeval = -qeval;
                 else
+%                     if regexp(var,'(?<!\D+)\d+')
+%                         % 数値の場合
+%                         qeval = qeval * str2double(var);
+%                     else
+%                         % 変数名の場合
+%                         qeval = qeval * evalin('base', var);
+%                     end
                     qeval = qeval * evalin('base', var);
                 end
             end
@@ -482,6 +578,11 @@ for i=1:size(L,1)
         elseif var == "-"
             leval = -leval;
         else 
+%             if regexp(var,'(?<!\D+)\d+')
+%                 leval = leval * str2double(var);
+%             else
+%                 leval = leval * evalin('base', var);
+%             end
             leval = leval * evalin('base', var);
         end
     end
@@ -503,6 +604,11 @@ for i=1:size(N,1)
         elseif var == "-"
             neval = -neval;
         else
+%             if regexp(var,'(?<!\D+)\d+')
+%                 neval = neval * str2double(var);
+%             else
+%                 neval = neval * evalin('base', var);
+%             end   
             neval = neval * evalin('base', var);
         end
     end
@@ -525,6 +631,11 @@ for i=1:size(R,1)
         elseif var == "-"
             reval = -reval;
         else
+%             if regexp(var,'(?<!\D+)\d+')
+%                 reval = reval * str2double(var);
+%             else
+%                 reval = reval * evalin('base', var);
+%             end     
             reval = reval * evalin('base', var);
         end
     end
@@ -543,7 +654,7 @@ BMIeval = Qeval + Bieval;
 
 if nargin<4
     G=eye(size(Y,1));
-elseif isa(G,'string')
+elseif isa(G,'string') || isa(G,'char') 
     G=evalin('base',G);
 end
 
@@ -606,17 +717,87 @@ function [L,V] = updateList(L,V,n)
     end
 end
 
-% Matrixの更新
-% function [M,L] = updateMatrix(M,L,col,row)
-%     collist = M{col,1};
-%     rowlist = M{col,1}{1,row};
-%     
-%     rowlist = updateList(rowlist,L);
-%     collist{1,row} = rowlist;
-%     M{col,1} = collist;
-%     
-%     L = {};
-% end
+
+% 括弧との積を分配する関数
+function S = divbracket(S)
+
+    % 対応する正規表現
+    re1 = "\w+(\')*\*\((\w|\+|\*|\')+\)"; % 括弧の前に積
+    re2 = "(?<!\w+)\([\w\+\*\']+\)\*\w+(\')*";    % 括弧の後に積
+    re3 = "(?<!\w+)\([\w\+\*\']+\)";      % 括弧の前後に積がない+関数の括弧でない，括弧を外す
+    
+    % 括弧の前に積
+    if regexp(S,re1)
+        % 正規表現と対応する文字列
+        bracketterm = regexp(S,re1,'match','once');
+        % 括弧との積
+        mult = regexp(bracketterm,"\w+(\')*\*",'match','once');
+        % 括弧の項
+        bracket = regexp(bracketterm,"\((\w|\+|\*|\')+\)",'match','once');
+        % 括弧の中の式
+        bracketin = regexp(bracket,"(\w|\+|\*|\')+",'match','once');
+        % 置き換える文字列，括弧の中の各項との積
+        rep = regexprep(bracketin,"\w+(\*\w+)*",mult+"$0");
+        % 括弧なしの式に変換する
+        S = regexprep(S,re1,rep,'once');
+        
+    % 括弧の後に積
+    elseif regexp(S,re2)
+        bracketterm = regexp(S,re2,'match','once');
+        mult = regexp(bracketterm,"\*\w+(\')*(?!.*\))",'match','once');
+        bracket = regexp(bracketterm,"\([\w\+\*\']+\)",'match','once');
+        bracketin = regexp(bracket,"[\w\+\*\']+",'match','once');
+        rep = regexprep(bracketin,"\w+(\')*+(\*\w+(\')*)*","$0"+mult);
+        S = regexprep(S,re2,rep,'once');
+        
+    % 括弧の前後に積がない，括弧を外す
+    elseif regexp(S,re3)
+        bracketterm = regexp(S,re3,'match','once');
+        bracket = regexp(bracketterm,"\([\w\+\*\']+\)",'match','once');
+        rep = regexp(bracket,"[\w\+\*\']+",'match','once');
+        S = regexprep(S,re3,rep,'once');
+    end
+    
+end
 
 
+% 括弧の転置を分配する関数，括弧内の積の順序が逆転
+function S = divbracketT(S)
 
+    % 対応する正規表現
+    re = "\((\w|\+|\*|\')+\)\'";
+    % 正規表現に対応する文字列
+    bracket = regexp(S,re,'match','once');
+    % 括弧の中の式
+    bracketin = regexp(bracket,"(\w|\+|\*|\')+",'match','once');
+    %
+    % 括弧の中の各項
+    term = regexp(bracketin,"\w+(\*\w+)*",'match');
+    % 括弧の中の文字列(最終的に求めたいもの)
+    bracketstr = "";
+    for i=1:length(term)
+        % 各項の文字列
+        termstr = "";
+        % 各項の変数のcell配列
+        var = regexp(term{1,i},"\w+",'match');
+        for j=1:length(var)
+            % 配列を逆から処理，転置'を加えて*で連結
+            if j==1
+                termstr = termstr + string(var(end-j+1)) + "'";
+            else
+                termstr = termstr + "*" + string(var(end-j+1)) + "'";
+            end
+        end
+
+        % 上で処理した各項を+で連結
+        if i==1
+            bracketstr = bracketstr + termstr;
+        else
+            bracketstr = bracketstr + "+" + termstr;
+        end
+    end
+    % 括弧()で囲み置換する
+    rep = "(" + bracketstr + ")";
+    S = regexprep(S,re,rep,'once');
+
+end
