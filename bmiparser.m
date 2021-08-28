@@ -1,25 +1,31 @@
-function [LMI,BMI,Q0,L,N,R] = bmiparser(S, vlist, v0list, G)
+function [LMI,BMI,gBMI] = bmiparser(S, vlist, v0list, G)
 % BMIの文字列を受け取り，逐次LMIの値を返すパーサー
+%   
+%   OUTPUT:
+%       LMI: 逐次LMI(変換後)の値
+%       BMI: BMI(変換前)の値
+%       gBMI: 一般化BMI(He(Q+LXNYR))の行列の情報(構造体)
 %
-%   S: BMIの文字列
-%       ex) "P*A+P*B*K*C+A'*P'+C'*K'*B'*P'"
-%   vlist: 決定変数の文字列
-%       ex) {'P','K'}
-%   v0list: 暫定解の文字列
-%       ex) {'P0','K0'}
-%   G: gammaの定数倍，デフォルトで単位行列
+%   INPUT:
+%       S: BMIの文字列
+%           ex) "P*A+P*B*K*C+A'*P'+C'*K'*B'*P'"
+%       vlist: 決定変数の文字列
+%           ex) {'P','K'}
+%       v0list: 暫定解の文字列
+%           ex) {'P0','K0'}
+%       G: gammaの定数倍，デフォルトで単位行列
 %
 %
 %   ※ワークスペースの変数の値を利用して計算するので，
 %     bmiparser関数を呼び出す前に，
 %     あらかじめに変数を宣言する必要がある．
-%   ex) 
-%       X = sdpvar(2,2)
-%       Y = sdpvar(3,2)
-%       A = rand(2,3)
-%       X0= rand(2,2) 
-%       Y0= rand(3,2)
-%       LMI = bmiparser("X*A*Y+Y'*A'*X'",{'X','Y'},{'X0','Y0'})
+%       ex) 
+%           X = sdpvar(2,2)
+%           Y = sdpvar(3,2)
+%           A = rand(2,3)
+%           X0= rand(2,2) 
+%           Y0= rand(3,2)
+%           LMI = bmiparser("X*A*Y+(X*A*Y)'",{'X','Y'},{'X0','Y0'})
 %
 %
 %   現段階：
@@ -44,23 +50,56 @@ Y0str=v0list{2};
 
 %% 字句解析の前処理
 
+% 正規表現用変数の初期化
+% regdeclare関数内で定義された変数の使用例
+% ex)
+%   global TERM
+%   term = regexp(S,TERM,'match');
+regdeclare();
+
+
 % 空文字を削減
-S = regexprep(S,'(\s+)',' ');
+S = char(regexprep(S,'(\s+)',' '));
+
+% []の入れ子をなくす
+% S(1),S(end)
+if S(1) == "[" && S(end) == "]" &&...
+        S(2) == "[" && S(end-1) == "]"
+    S = S(2:end-1);
+end
+% S
+
+
+% ベクトルの積
+global VEC_PROD_VEC
+while regexp(S,VEC_PROD_VEC)
+    S = prodvec(S);
+end
+% S
+
+% 行列の転置
+global MAT_TRANSPOSE
+while regexp(S,MAT_TRANSPOSE)
+    S = transposematrix(S);
+end
+% S
 
 % 括弧の処理
 % eye(2,2)のように，関数の括弧は処理しない
-while regexp(S,'(?<!\w+)\((.*)\)')
-    % 括弧()と変数の積の処理，分配法則
+global BRACKET_POLY % (?<!\w+)\((.*)\)
+while regexp(S,BRACKET_POLY)
+    % 括弧()を展開する
     S = divbracket(S);
-
-    % 括弧の転置の処理()',分配法則+積順序の逆転
-    S = divbracketT(S);
 end
-% デバッグ用
-% S = divbracket(S)
-% S = divbracketT(S)
-% S = divbracket(S)
 % S
+
+% 転置'の処理
+% 奇数個:1コ に変換
+S = regexprep(S,"\'(\'\')*","\'");
+% 偶数個:0コ に変換
+S = regexprep(S,"(\'\')+","");
+%
+S
 
 
 %% 字句解析
@@ -672,12 +711,19 @@ LMIeval=[Qeval+replace(Bieval,Y,Y0)+replace(Bieval,X,X0)-Leval*X0*Neval*Y0*Reval
 
 
      
-%% デバッグ用出力
+%% デバッグ用出力, 一般化BMIの情報
 %%%% heなし
-Q0= Qeval; % 線形項
-L = Leval; % 双線形項の定数行列(左)
-N = Neval; % 双線形項の定数行列(中)
-R = Reval; % 双線形項の定数行列(右)
+% Q0= Qeval; % 線形項
+% L = Leval; % 双線形項の定数行列(左)
+% N = Neval; % 双線形項の定数行列(中)
+% R = Reval; % 双線形項の定数行列(右)
+
+gBMI.expression = 'Q+He(LXNYR)';
+gBMI.sdpvar = {Xstr,Ystr};
+gBMI.Q = Qeval;
+gBMI.L = Leval;
+gBMI.N = Neval;
+gBMI.R = Reval;
 
 
 %% 関数の出力
@@ -685,13 +731,12 @@ LMI = LMIeval + LMIeval';
 BMI = BMIeval + BMIeval';
 
 
-
 end
 
 
 
 %% 内部関数群
-% Listの更新（追加）と初期化
+%% Listの更新（追加）と初期化
 function [L,V] = updateList(L,V,n)
     % ex) 
     %   LにVを追加，Vを初期化:
@@ -717,87 +762,283 @@ function [L,V] = updateList(L,V,n)
     end
 end
 
+%% 正規表現用マジックナンバーの宣言(初期化)する関数，正規表現を要素ごとに分解
+function regdeclare()
+    clear regdeclare
 
-% 括弧との積を分配する関数
+    % 変数名，転置付き
+    % ex) A, B1'
+    global VAR
+    VAR = "\w+(\')*";
+    
+    % 関数
+    % ex) eye(n,n)
+    global FUNC
+    FUNC = "\w+\([\w\,\']+\)(\')*";
+    
+    % 関数もしくは変数名, 値を持つトークン
+    % ex) eye(n), A'
+    global FUNC_OR_VAR
+    FUNC_OR_VAR = "("+FUNC+"|"+VAR+")";
+    
+    % 多項式の項
+    % ex) A, A*B1, eye(n)*A'
+    global TERM
+    TERM = FUNC_OR_VAR+"(\*"+FUNC_OR_VAR+")*";
+    
+    % 多項式
+    % ex) A+B1'*eye(n)
+    global POLY
+    POLY = FUNC_OR_VAR+"((+|-|*)"+FUNC_OR_VAR+")*";
+    
+    
+    % 括弧の前後に積がない & 関数の括弧でない
+    % ex) (A+B*C)
+    % eye(n)とはマッチングしない
+    global BRACKET_POLY
+    BRACKET_POLY = "(?<!\w+)"+"\("+POLY+"\)";
+    
+    % 括弧の転置
+    % ex) (A+B*C)'
+    global BRACKET_TRANSPOSE
+    BRACKET_TRANSPOSE = BRACKET_POLY+"\'";
+    
+    % 括弧と括弧の積
+    % ex) (A+B*C)*(A+B*C)
+    % eye(n)*(A+B*C) とはマッチングしない
+    global PROD_BRACKET 
+    global BRACKET_PROD_BRACKET
+    PROD_BRACKET = "(\*"+BRACKET_POLY+")+"+"(?!.*\))";
+    BRACKET_PROD_BRACKET = BRACKET_POLY + PROD_BRACKET;
+    
+    % 括弧の前に積
+    % ex) D*(A+B*C) 
+    global LEFT_PROD 
+    global LEFT_PROD_BRACKET
+    LEFT_PROD = "("+FUNC_OR_VAR+"\*)+";
+    LEFT_PROD_BRACKET = LEFT_PROD + BRACKET_POLY;
+    
+    % 括弧の後に積
+    % ex) (A+B*C)*D
+    % eye(n)*D とはマッチングしない
+    global PROD_RIGHT 
+    global BRACKET_PROD_RIGHT
+    PROD_RIGHT = "(\*"+FUNC_OR_VAR+")+"+"(?!.*\))";
+    BRACKET_PROD_RIGHT = BRACKET_POLY + PROD_RIGHT;
+    
+    
+    % 縦ベクトルと横ベクトルの積
+    global VEC
+    global PROD_VEC
+    global VEC_PROD_VEC
+    VEC = "\[[^\[]*?\]";
+    PROD_VEC = "\*" + VEC;
+    VEC_PROD_VEC = VEC + PROD_VEC; 
+    
+    
+    % 括弧の多項式
+    % ex) (A+B*C)*A, A*B, A+(B+C*K)
+    global BRACKET_POLY_OR_POLY
+    global POLY_BRACKET
+    BRACKET_POLY_OR_POLY = "("+BRACKET_POLY+"|"+POLY+")";
+    POLY_BRACKET = BRACKET_POLY_OR_POLY+"((+|-|*)"+BRACKET_POLY_OR_POLY+")*";
+    
+    % 行列の転置
+    global MAT_TRANSPOSE
+    global MAT_COL
+    MAT_TRANSPOSE = "("+ "(?<!\w+)"+"\("+VEC+"\)"+"\'" +"|" +VEC+"\'" +")";
+    % MAT_COL = "("+BRACKET_POLY_OR_POLY+"(\s)*)+"+"(?=(;|]))";
+    MAT_COL = "(?<=([|;))"+"[^;]+"+"(?=(;|]))";
+    
+end
+
+%% 括弧()を展開する関数
 function S = divbracket(S)
 
     % 対応する正規表現
-    re1 = "\w+(\')*\*\((\w|\+|\*|\')+\)"; % 括弧の前に積
-    re2 = "(?<!\w+)\([\w\+\*\']+\)\*\w+(\')*";    % 括弧の後に積
-    re3 = "(?<!\w+)\([\w\+\*\']+\)";      % 括弧の前後に積がない+関数の括弧でない，括弧を外す
+    % TODO:
+    %   ブロック行列を括弧で囲んだ表現 ([...])'をどう処理するか
+    %   変数の前にマイナス-があるときどう処理するか
+
     
-    % 括弧の前に積
-    if regexp(S,re1)
-        % 正規表現と対応する文字列
-        bracketterm = regexp(S,re1,'match','once');
-        % 括弧との積
-        mult = regexp(bracketterm,"\w+(\')*\*",'match','once');
-        % 括弧の項
-        bracket = regexp(bracketterm,"\((\w|\+|\*|\')+\)",'match','once');
+    % 正規表現用変数(global)を呼び出す
+    regdeclare();
+    global FUNC_OR_VAR
+    global TERM
+    global POLY
+    global BRACKET_POLY
+    global BRACKET_TRANSPOSE
+    global PROD_BRACKET 
+    global BRACKET_PROD_BRACKET
+    global LEFT_PROD 
+    global LEFT_PROD_BRACKET
+    global PROD_RIGHT 
+    global BRACKET_PROD_RIGHT
+    
+    
+    % 括弧の転置，括弧内の積の順序が逆転
+    if regexp(S,BRACKET_TRANSPOSE)
+        % 正規表現に対応する文字列
+        bracket = regexp(S,BRACKET_TRANSPOSE,'match','once');
         % 括弧の中の式
-        bracketin = regexp(bracket,"(\w|\+|\*|\')+",'match','once');
+        bracketin = regexp(bracket,POLY,'match','once');
+        %
+        % 括弧の中の各項
+        term = regexp(bracketin,TERM,'match');
+        % 括弧の中の文字列(最終的に求めたいもの)
+        bracketstr = "";
+        for i=1:length(term)
+            % 各項の文字列
+            termstr = "";
+            % 各項の変数のcell配列
+            var = regexp(term{1,i},FUNC_OR_VAR,'match');
+            for j=1:length(var)
+                % 配列を逆から処理，転置'を加えて*で連結
+                if j==1
+                    termstr = termstr + string(var(end-j+1)) + "'";
+                else
+                    termstr = termstr + "*" + string(var(end-j+1)) + "'";
+                end
+            end
+
+            % 上で処理した各項を+で連結
+            if i==1
+                bracketstr = bracketstr + termstr;
+            else
+                bracketstr = bracketstr + "+" + termstr;
+            end
+        end
+        % 括弧()で囲み置換する
+        rep = "(" + bracketstr + ")";
+        S = regexprep(S,BRACKET_TRANSPOSE,rep,'once');
+    
+    
+    % 括弧と括弧の積
+    elseif regexp(S,BRACKET_PROD_BRACKET)
+        % 正規表現と対応する文字列
+        bracketterm = regexp(S,BRACKET_PROD_BRACKET,'match','once');
+        % 括弧との積
+        mult = regexp(bracketterm,PROD_BRACKET,'match','once');
+        % 括弧の項
+        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
+        % 括弧の中の式
+        bracketin = regexp(bracket,POLY,'match','once');
         % 置き換える文字列，括弧の中の各項との積
-        rep = regexprep(bracketin,"\w+(\*\w+)*",mult+"$0");
-        % 括弧なしの式に変換する
-        S = regexprep(S,re1,rep,'once');
+        rep = regexprep(bracketin,TERM,"$0"+mult);
+        % 括弧を展開した式に変換する
+        S = regexprep(S,BRACKET_PROD_BRACKET,rep,'once');
+        
+        
+    % 括弧の前に積
+    elseif regexp(S,LEFT_PROD_BRACKET)
+        % 正規表現と対応する文字列
+        bracketterm = regexp(S,LEFT_PROD_BRACKET,'match','once');
+        % 括弧との積
+        mult = regexp(bracketterm,LEFT_PROD,'match','once');
+        % 括弧の項
+        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
+        % 括弧の中の式
+        bracketin = regexp(bracket,POLY,'match','once');
+        % 置き換える文字列，括弧の中の各項との積
+        rep = regexprep(bracketin,TERM,mult+"$0");
+        % 括弧を展開した式に変換する
+        S = regexprep(S,LEFT_PROD_BRACKET,"("+rep+")",'once');
+        
         
     % 括弧の後に積
-    elseif regexp(S,re2)
-        bracketterm = regexp(S,re2,'match','once');
-        mult = regexp(bracketterm,"\*\w+(\')*(?!.*\))",'match','once');
-        bracket = regexp(bracketterm,"\([\w\+\*\']+\)",'match','once');
-        bracketin = regexp(bracket,"[\w\+\*\']+",'match','once');
-        rep = regexprep(bracketin,"\w+(\')*+(\*\w+(\')*)*","$0"+mult);
-        S = regexprep(S,re2,rep,'once');
+    elseif regexp(S,BRACKET_PROD_RIGHT)
+        bracketterm = regexp(S,BRACKET_PROD_RIGHT,'match','once');
+        mult = regexp(bracketterm,PROD_RIGHT,'match','once');
+        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
+        bracketin = regexp(bracket,POLY,'match','once');
+        rep = regexprep(bracketin,TERM,"$0"+mult);
+        S = regexprep(S,BRACKET_PROD_RIGHT,rep,'once');
+    
         
     % 括弧の前後に積がない，括弧を外す
-    elseif regexp(S,re3)
-        bracketterm = regexp(S,re3,'match','once');
-        bracket = regexp(bracketterm,"\([\w\+\*\']+\)",'match','once');
-        rep = regexp(bracket,"[\w\+\*\']+",'match','once');
-        S = regexprep(S,re3,rep,'once');
+    elseif regexp(S,BRACKET_POLY)
+        bracketterm = regexp(S,BRACKET_POLY,'match','once');
+        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
+        rep = regexp(bracket,POLY,'match','once');
+        S = regexprep(S,BRACKET_POLY,rep,'once');
     end
     
 end
 
 
-% 括弧の転置を分配する関数，括弧内の積の順序が逆転
-function S = divbracketT(S)
+%% ベクトルの積[...;...]*[... ...]を展開する関数
+function S = prodvec(S)
+    
+    regdeclare();
+    global VEC
+    global PROD_VEC
+    global VEC_PROD_VEC
+    global POLY
 
-    % 対応する正規表現
-    re = "\((\w|\+|\*|\')+\)\'";
-    % 正規表現に対応する文字列
-    bracket = regexp(S,re,'match','once');
-    % 括弧の中の式
-    bracketin = regexp(bracket,"(\w|\+|\*|\')+",'match','once');
-    %
-    % 括弧の中の各項
-    term = regexp(bracketin,"\w+(\*\w+)*",'match');
-    % 括弧の中の文字列(最終的に求めたいもの)
-    bracketstr = "";
-    for i=1:length(term)
-        % 各項の文字列
-        termstr = "";
-        % 各項の変数のcell配列
-        var = regexp(term{1,i},"\w+",'match');
-        for j=1:length(var)
-            % 配列を逆から処理，転置'を加えて*で連結
-            if j==1
-                termstr = termstr + string(var(end-j+1)) + "'";
+    
+    if regexp(S,VEC_PROD_VEC)
+        vecprodterm = regexp(S,VEC_PROD_VEC,'match','once');
+        left = regexp(vecprodterm,VEC,'match','once');
+        right = regexp(vecprodterm,PROD_VEC,'match','once');
+        lexp = regexp(left,POLY,'match');
+        rexp = regexp(right,POLY,'match');
+        l = "("+lexp'+")";
+        r = "("+rexp+")";
+        matrix = append(l,"*",r);
+%         matrix'
+        rep = "[";
+        for i=1:size(matrix,1)
+            col = strjoin(matrix(i,:)," ");
+            rep = rep+col;
+            if i ~= size(matrix,1)
+                rep = rep+";";
             else
-                termstr = termstr + "*" + string(var(end-j+1)) + "'";
-            end
-        end
-
-        % 上で処理した各項を+で連結
-        if i==1
-            bracketstr = bracketstr + termstr;
-        else
-            bracketstr = bracketstr + "+" + termstr;
+                rep = rep+"]";
+            end 
         end
     end
-    % 括弧()で囲み置換する
-    rep = "(" + bracketstr + ")";
-    S = regexprep(S,re,rep,'once');
+    S = regexprep(S,VEC_PROD_VEC,rep,'once');
+    S = char(S);
+
+
+end
+
+
+%% 行列の転置([...;...])'を展開する関数，文字列のままで
+function S = transposematrix(S)
+
+    global MAT_TRANSPOSE
+    global VEC
+    global MAT_COL
+    global POLY_BRACKET
+    trans = regexp(S,MAT_TRANSPOSE,'match','once');
+    matrix = regexp(trans,VEC,'match','once');
+    col = regexp(matrix,MAT_COL,'match');
+    item = regexp(col,POLY_BRACKET,'match');
+
+    for i=1:length(item)
+        if i == 1
+            itemlist = item{1,i};
+        else
+            itemlist = cat(1,itemlist,item{1,i});
+        end 
+    end
+    % itemlist
+    % itemlist = itemlist'
+    itemlistT = "("+itemlist'+")'";
+
+    smat = "[";
+    for i=1:size(itemlistT,1)
+        col = strjoin(itemlistT(i,:)," ");
+        smat = smat+col;
+        if i ~= size(itemlistT,1)
+            smat = smat+";";
+        else
+            smat = smat+"]";
+        end 
+    end
+    
+    S = regexprep(S,MAT_TRANSPOSE,smat,'once');
+    S = char(S);
 
 end
