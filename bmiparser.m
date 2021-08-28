@@ -63,8 +63,8 @@ S = char(regexprep(S,'(\s+)',' '));
 
 % []の入れ子をなくす
 % S(1),S(end)
-if S(1) == "[" && S(end) == "]" &&...
-        S(2) == "[" && S(end-1) == "]"
+if S(1) == "[" && S(end) == "]"...
+%          && S(2) == "[" && S(end-1) == "]"
     S = S(2:end-1);
 end
 % S
@@ -127,6 +127,7 @@ for i=1:strlength(S)
     % デバッグ用:
     % disp("-----")
     % S(i),varstr,varlist,termlist
+    % colnum,rownum
 
     
     % 変数の文字列の場合
@@ -320,14 +321,15 @@ end
 % smatrix{1,3}{2,1}
 
 
+%% 線形項と双線形項の分離
+% 行列
+linearmatrix = smatrix; % 定数項，1次項
+binearmatrix = smatrix; % 双線形項
 
-%% heの分離
+% 一時的リスト
+linearlist = {}; % 定数項，1次項
+binearlist = {}; % 双線形項
 
-orgmatrix = smatrix; % 転置なし行列
-hematrix = smatrix;  % 転置あり行列
-
-orgtermlist = {};    % 項のリスト(初期化)
-hetermlist = {};     % 項の転置ありリスト(初期化)
 
 for col=1:size(smatrix,1)
     % 各行ベクトル
@@ -335,6 +337,59 @@ for col=1:size(smatrix,1)
         % 各行列要素
         % disp(col+" "+row)
         termlist = smatrix{col,row};
+        for i=1:size(termlist,1)
+            % 要素の各項
+            term = termlist{i,1};
+            %
+            varcount = 0; % 決定変数の数
+            for j=1:size(term,2)
+                % 項のそれぞれの変数
+                var = term{1,j};
+                if ~isempty(regexp(var, Xstr, 'once')) ||...
+                   ~isempty(regexp(var, Ystr, 'once'))
+                    varcount = varcount + 1;
+                end
+                if varcount >= 2
+                    binearlist = updateList(binearlist,term,1);
+                    break
+                elseif j == size(term,2)
+                    linearlist = updateList(linearlist,term,1);
+                    break
+                end
+            end
+        end
+        % 線形項の行列
+        linearmatrix(col,row) = {linearlist};
+        linearlist = {};
+        % 双線形項の行列
+        binearmatrix(col,row) = {binearlist};
+        binearlist = {};
+    end
+end
+% デバッグ用:
+% linearmatrix
+% binearmatrix
+
+% linearmatrix{1,1}{2,1}
+% linearmatrix{1,1}{2,1}
+% binearmatrix{1,1}{1,1}
+
+
+
+%% 双線形項のheの分離
+
+orgmatrix = binearmatrix; % 転置なし行列
+hematrix = binearmatrix;  % 転置あり行列
+
+orgtermlist = {};    % 項のリスト(初期化)
+hetermlist = {};     % 項の転置ありリスト(初期化)
+
+for col=1:size(binearmatrix,1)
+    % 各行ベクトル
+    for row=1:size(binearmatrix,2)
+        % 各行列要素
+        % disp(col+" "+row)
+        termlist = binearmatrix{col,row};
         for i=1:size(termlist,1)
             % 要素の各項
             term = termlist{i,1};
@@ -369,60 +424,11 @@ end
 % デバッグ用:
 % orgmatrix
 % hematrix
+% 
+% orgmatrix{1,1}{1,1}
+% hematrix{1,1}{1,1}
 
-
-%% 双線形項の分離
-% 行列
-linearmatrix = orgmatrix; % 定数項，1次項
-binearmatrix = orgmatrix; % 双線形項
-
-% 一時的リスト
-linearlist = {}; % 定数項，1次項
-binearlist = {}; % 双線形項
-
-
-for col=1:size(orgmatrix,1)
-    % 各行ベクトル
-    for row=1:size(orgmatrix,2)
-        % 各行列要素
-        % disp(col+" "+row)
-        termlist = orgmatrix{col,row};
-        for i=1:size(termlist,1)
-            % 要素の各項
-            term = termlist{i,1};
-            %
-            varcount = 0; % 決定変数の数
-            for j=1:size(term,2)
-                % 項のそれぞれの変数
-                var = term{1,j};
-                if ~isempty(regexp(var, Xstr, 'once')) ||...
-                   ~isempty(regexp(var, Ystr, 'once'))
-                    varcount = varcount + 1;
-                end
-                if varcount >= 2
-                    binearlist = updateList(binearlist,term,1);
-                    break
-                elseif j == size(term,2)
-                    linearlist = updateList(linearlist,term,1);
-                    break
-                end
-            end
-        end
-        % 線形項の行列
-        linearmatrix(col,row) = {linearlist};
-        linearlist = {};
-        % 双線形項の行列
-        binearmatrix(col,row) = {binearlist};
-        binearlist = {};
-    end
-end
-% デバッグ用:
-% linearmatrix
-% binearmatrix
-
-% binearmatrix{1,1}{1,1}
-% binearmatrix{1,2}{1,1}
-
+binearmatrix = orgmatrix;
 
 %% BMI一般化，Q,L,N,Rの取得
 Q = linearmatrix; % 定数項，一次項
@@ -530,17 +536,17 @@ Y0 = evalin('base', Y0str);
 % 制約行列の対角ブロックから割り出す
 colsize = []; % 各ブロックの行サイズ
 rowsize = []; % 各ブロックの列サイズ
-for i=1:size(orgmatrix,1)
+for i=1:size(smatrix,1)
     idx = 1;
-    s = orgmatrix{i,i}{1,1}{1,1};
-    for j=1:size(orgmatrix,1)
+    s = smatrix{i,i}{1,1}{1,1};
+    for j=1:size(smatrix,1)
         if s == "-"
             idx = idx+1;
             break
         end
     end
-    s = orgmatrix{i,i}{1,1}{1,idx}; % 項の一番左の変数
-    e = orgmatrix{i,i}{1,1}{1,end}; % 項の一番右の変数
+    s = smatrix{i,i}{1,1}{1,idx}; % 項の一番左の変数
+    e = smatrix{i,i}{1,1}{1,end}; % 項の一番右の変数
     ssize = size(evalin('base',s),1);
     esize = size(evalin('base',e),2);
     colsize = cat(2,colsize,ssize);
@@ -587,12 +593,12 @@ for col=1:size(Q,1)
             z = zeros(colsize(col),rowsize(row));
             Qcol = cat(2,Qcol,z);
         else
-            % 対角要素は1/2倍
-            if col == row && col >= 2
-                % (1,1)要素に対しても実行する必要がある
-                % 未実装
-                Qevalelem = Qevalelem / 2;
-            end
+%             % 対角要素は1/2倍
+%             if col == row && col >= 2
+%                 % (1,1)要素に対しても実行する必要がある
+%                 % 未実装
+%                 Qevalelem = Qevalelem / 2;
+%             end
             Qcol = cat(2,Qcol,Qevalelem);
         end
         % Qcol
@@ -601,6 +607,14 @@ for col=1:size(Q,1)
     Qeval = cat(1,Qeval,Qcol);
 end
 % Qeval
+
+
+% 受け取った引数牙そもそもLMIの場合，そのまま計算結果を返す
+if isequal(cellfun(@isempty,binearmatrix),ones(size(binearmatrix)))
+    LMI = Qeval;
+    BMI = LMI;
+    return
+end
 
 
 % 双線形項の左定数Lの計算
@@ -688,7 +702,7 @@ end
 Bieval = Leval * X * Neval * Y * Reval;
 
 % BMIの値の計算, 多分使わない，デバッグ用
-BMIeval = Qeval + Bieval;
+BMIeval = Qeval + Bieval + Bieval';
 
 
 if nargin<4
@@ -698,16 +712,16 @@ elseif isa(G,'string') || isa(G,'char')
 end
 
 % 拡大した LMI 条件, heなし
-LMIeval=[Qeval+replace(Bieval,Y,Y0)+replace(Bieval,X,X0)-Leval*X0*Neval*Y0*Reval,...
-         Leval*(X-X0)*Neval;...
-         G*(Y-Y0)*Reval,...
-         -G];
+% LMIeval=[Qeval+replace(Bieval,Y,Y0)+replace(Bieval,X,X0)-Leval*X0*Neval*Y0*Reval,...
+%          Leval*(X-X0)*Neval;...
+%          G*(Y-Y0)*Reval,...
+%          -G];
 % heあり
-% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-%         (Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...
-%          Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...
-%         (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',...
-%          -2*G];
+LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+        (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...
+         Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...
+        (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',...
+         -(G+G')];
 
 
      
@@ -718,7 +732,7 @@ LMIeval=[Qeval+replace(Bieval,Y,Y0)+replace(Bieval,X,X0)-Leval*X0*Neval*Y0*Reval
 % N = Neval; % 双線形項の定数行列(中)
 % R = Reval; % 双線形項の定数行列(右)
 
-gBMI.expression = 'Q+He(LXNYR)';
+gBMI.expression = 'Q + He( L * X * N * Y * R )';
 gBMI.sdpvar = {Xstr,Ystr};
 gBMI.Q = Qeval;
 gBMI.L = Leval;
@@ -727,9 +741,11 @@ gBMI.R = Reval;
 
 
 %% 関数の出力
-LMI = LMIeval + LMIeval';
-BMI = BMIeval + BMIeval';
+% LMI = LMIeval + LMIeval';
+% BMI = BMIeval + BMIeval';
 
+LMI = LMIeval;
+BMI = BMIeval;
 
 end
 
@@ -809,7 +825,7 @@ function regdeclare()
     global PROD_BRACKET 
     global BRACKET_PROD_BRACKET
     PROD_BRACKET = "(\*"+BRACKET_POLY+")+"+"(?!.*\))";
-    BRACKET_PROD_BRACKET = BRACKET_POLY + PROD_BRACKET;
+    BRACKET_PROD_BRACKET = BRACKET_POLY + "(\*"+BRACKET_POLY+")+";
     
     % 括弧の前に積
     % ex) D*(A+B*C) 
@@ -824,7 +840,7 @@ function regdeclare()
     global PROD_RIGHT 
     global BRACKET_PROD_RIGHT
     PROD_RIGHT = "(\*"+FUNC_OR_VAR+")+"+"(?!.*\))";
-    BRACKET_PROD_RIGHT = BRACKET_POLY + PROD_RIGHT;
+    BRACKET_PROD_RIGHT = BRACKET_POLY + "(\*"+FUNC_OR_VAR+")+";
     
     
     % 縦ベクトルと横ベクトルの積

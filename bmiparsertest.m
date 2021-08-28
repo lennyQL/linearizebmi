@@ -56,7 +56,7 @@ R = [C2 D21 zeros(p2,p1)];
 LMImanual = [Q0+L*X*N*Y0*R+L*X0*N*Y*R-L*X0*N*Y0*R+(L*X*N*Y0*R+L*X0*N*Y*R-L*X0*N*Y0*R)',...
              L*(X-X0)*N+R'*(Y-Y0)'*G';...
             (L*(X-X0)*N+R'*(Y-Y0)'*G')',...
-             -2*G];
+             -(G+G')];
          
 
          
@@ -68,7 +68,7 @@ Fstr1 = "[X*A+X*B2*Y*C2+A'*X'+C2'*Y'*B2'*X'  X*B1+X*B2*Y*D21  C1'+C2'*Y'*D12';"+
         "B1'*X'+D21'*Y'*B2'*X'               -I               D11'+D21'*Y'*D12';"+...
         "C1+D12*Y*C2                         D11+D12*Y*D21    -I]";
 %%% パターン2: 括弧()あり，1つの行列
-Fstr2 = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)  (C1+D12*Y*C2)';"+...
+Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)  (C1+D12*Y*C2)';"+...
         "(B1+B2*Y*D21)'*X'               -I               (D11+D12*Y*D21)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21    -I]";
 %%% パターン3: 関数あり，1つの行列
@@ -76,36 +76,40 @@ Fstr3 = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+..
         "(B1+B2*Y*D21)'*X'               -eye(p1)+zeros(p1)  (D11+D12*Y*D21)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1,p1)*eye(p1)]";
 %%% パターン4: 複数の行列の和
-Fstr4 = "[X*(A+B2*Y*C2)  X*(B1+B2*Y*D21)  zeros(n,p1);"+...
+Fstr4 = "[[X*(A+B2*Y*C2)  X*(B1+B2*Y*D21)  zeros(n,p1);"+...
         "zeros(m1,n)     zeros(p1,m1)     zeros(m1,p1);"+...
-        "zeros(p1,n)     zeros(p1,m1)     zeros(p1,p1)]"...
+        "zeros(p1,n)     zeros(p1,m1)     zeros(p1,p1)]"...     % 双線形項
         + "+" +...
         "[(A+B2*Y*C2)'*X'   zeros(n,m1)   zeros(n,p1);"+...
         "(B1+B2*Y*D21)'*X'  zeros(p1,m1)  zeros(m1,p1);"+...
-        "zeros(p1,n)        zeros(p1,m1)  zeros(p1,p1)]"...
+        "zeros(p1,n)        zeros(p1,m1)  zeros(p1,p1)]"...     % 双線形項の転置
         + "+" +...
         "[zeros(n,n)   zeros(n,m1)    (C1+D12*Y*C2)';"+...
         "zeros(m1,n)   -eye(p1)       (D11+D12*Y*D21)';"+...
-        "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]";
-%%% パターン5
-Fstr = "[[X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)]"...
+        "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]]";               % 線形項
+%%% パターン5: ベクトル同士の積, 転置あり
+Fstr5 = "[[X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)]"... % 双線形項
         +"+"+...
-        "([X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)])'"...
+        "([X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)])'"... % 双線形項の転置
         + "+" +...
         "[zeros(n,n)   zeros(n,m1)    (C1+D12*Y*C2)';"+...
         "zeros(m1,n)   -eye(p1)       (D11+D12*Y*D21)';"+...
-        "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]]";
+        "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]]";            % 線形項
 
 % parser(自作した関数)
 [LMIauto1, BMIauto1] = bmiparser(Fstr1,{'X','Y'},{'X0','Y0'});
-[LMIauto2, BMIauto2] = bmiparser(Fstr2,{'X','Y'},{'X0','Y0'});
+[LMIauto2, BMIauto2, g] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
 [LMIauto3, BMIauto3] = bmiparser(Fstr3,{'X','Y'},{'X0','Y0'});
 [LMIauto4, BMIauto4] = bmiparser(Fstr4,{'X','Y'},{'X0','Y0'});
-[LMIauto5, BMIauto5] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto5, BMIauto5] = bmiparser(Fstr5,{'X','Y'},{'X0','Y0'});
 
-
+% Q0
+% g.Q
 
 %%%%% 評価 %%%%%
+% BMItt: ゼロ行列かどうか
+% LMItt: coefficient range < 1e-10 かどうか
+
 disp(newline)
 disp("###*** パターン1 ***###")
 disp("# 括弧()なし，1つの行列による記述")
@@ -137,6 +141,13 @@ BMItt = BMImanual - BMIauto5
 LMItt = LMImanual - LMIauto5
 
 
+%% LMI
+% F ="[[X;zeros(n,n)]*[A,A]+"+...
+%     "([X;zeros(n,n)]*[A,A])']"
+% 
+% a = [[X;zeros(n,n)]*[A,A]+([X;zeros(n,n)]*[A,A])']
+% b = bmiparser(F,{'X','Y'},{'X0','Y0'})
+% a-b
 
 %% 極配置問題, 制約がブロック行列で表されない場合
 disp(newline)
@@ -144,10 +155,8 @@ disp("<<<======***** 極配置問題 *****======>>>")
 
 % % BMI 制約式の左辺
 % Fstr = "X*A+X*B2*Y*C2+A'*X'+C2'*Y'*B2'*X'";
-Fstr = "eye(n)*X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'*eye(n,n)+(zeros(n)+zeros(n))*(zeros(n)+zeros(n))";
-% Fstr = "X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'+(A+A)'*(A+A)";
-% Fstr = "A*X*(A+B2*Y*C2)*A*A+(A+B2*Y*C2)'*X'";
-% Fstr = "X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'+(C'+D''*K)'*(C'+D*K)";
+Fstr = "X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'";
+% Fstr = "eye(n)*X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'*eye(n,n)+(zeros(n)-zeros(n))*(zeros(n)+zeros(n))";
 [LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
 % 
 % BMImanual = X*A+X*B2*Y*C2+A'*X'+C2'*Y'*B2'*X';
@@ -161,7 +170,7 @@ R = C2;
 LMImanual = [Q0+L*X*N*Y0*R+L*X0*N*Y*R-L*X0*N*Y0*R+(L*X*N*Y0*R+L*X0*N*Y*R-L*X0*N*Y0*R)',...
              L*(X-X0)*N+R'*(Y-Y0)'*G';...
             (L*(X-X0)*N+R'*(Y-Y0)'*G')',...
-             -2*G];
+             -(G+G')];
 %
 disp("# 制約がブロック行列で表されない")
 BMItt = BMImanual - BMIauto
@@ -169,3 +178,4 @@ LMItt = LMImanual - LMIauto
 
 % [a,b,g] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
 % g
+
