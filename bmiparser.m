@@ -32,7 +32,7 @@ function [LMI,BMI,gBMI] = bmiparser(S, vlist, v0list, G)
 %       ・()を使った分配法則や転置が可能, ()の入れ子は対応できていない
 %       ・数値を直接記述した場合のスカラー倍にまだ対応できていない, 変数名は可能
 %       ・行列[]の和による記述が可能
-%       ・[]の入れ子にまだ対応できていない
+%       ・ベクトル同士の積による行列の記述が可能
 %
 
 % 文字列を文字ベクトルに変換
@@ -126,8 +126,9 @@ matrixlist = {}; % 行列[...]の字句解析結果(smatrix)を格納する, 最
 for i=1:strlength(S)
     % デバッグ用:
     % disp("-----")
+    % disp(colnum+" "+rownum)
     % S(i),varstr,varlist,termlist
-    % colnum,rownum
+    
 
     
     % 変数の文字列の場合
@@ -160,7 +161,10 @@ for i=1:strlength(S)
     
     % 演算子の場合
     % 和+
-    if regexp(S(i), '\+') 
+    if regexp(S(i), '\+')
+        if varstr == ""
+            continue
+        end
         % varstrをvarlistに追加, varstr初期化
         [varlist, varstr] = updateList(varlist,varstr);
         % varlistをtermlistに追加，varlist初期化
@@ -260,6 +264,15 @@ for i=1:strlength(S)
         end
         % smatrixをmatrixlistに追加
         [matrixlist,smatrix] = updateList(matrixlist,smatrix);
+        
+        % 行列を解析するための初期化
+%         termlist = {}; % 項のリスト
+%         varlist = {};  % 変数定数の配列(一時的)
+%         varstr = "";   % 1つの変数の文字列(一時的)
+        columlist = {}; % 行のリスト
+        colnum = 1;     % 行数
+        rownum = 1;     % 列数
+        
         continue
     end
     
@@ -291,8 +304,28 @@ end
 
 
 %% 行列(matrixlist)の結合
+
+[scol,srow] = cellfun(@size,matrixlist);
+
+matlist = {};       % matrixlistでsizeが最大の行列(複数)，この中に双線形項が必ずある
+othermatlist = {};  % othermatlist: smatrixよりsizeが小さい行列，関数blkdiagなど，必ず線形項
+
+% matlistとothermatlistの分離
 for i=1:length(matrixlist)
     mat = matrixlist{1,i};
+    if isequal(size(mat),[max(scol) max(srow)])
+        matlist = cat(2,matlist,{mat});
+    else
+        othermatlist = cat(2,othermatlist,{mat});
+    end
+end
+
+% matlist
+% othermatlist
+
+% matlistのみの計算
+for i=1:length(matlist)
+    mat = matlist{1,i};
     if i == 1
         smatrix = mat;
         continue
@@ -428,7 +461,6 @@ end
 % orgmatrix{1,1}{1,1}
 % hematrix{1,1}{1,1}
 
-binearmatrix = orgmatrix;
 
 %% BMI一般化，Q,L,N,Rの取得
 Q = linearmatrix; % 定数項，一次項
@@ -437,12 +469,12 @@ N = {}; % 双線形項の定数行列(中)
 R = {}; % 双線形項の定数行列(右)
 
 
-for col=1:size(binearmatrix,1)
+for col=1:size(orgmatrix,1)
     % 各行ベクトル
-    for row=1:size(binearmatrix,2)
+    for row=1:size(orgmatrix,2)
         % 各行列要素
         % disp(col+" "+row)
-        termlist = binearmatrix{col,row};
+        termlist = orgmatrix{col,row};
         %
         xidx = 0; % 双線形項におけるXstrの位置
         yidx = 0; % 双線形項におけるYstrの位置
@@ -593,12 +625,6 @@ for col=1:size(Q,1)
             z = zeros(colsize(col),rowsize(row));
             Qcol = cat(2,Qcol,z);
         else
-%             % 対角要素は1/2倍
-%             if col == row && col >= 2
-%                 % (1,1)要素に対しても実行する必要がある
-%                 % 未実装
-%                 Qevalelem = Qevalelem / 2;
-%             end
             Qcol = cat(2,Qcol,Qevalelem);
         end
         % Qcol
@@ -607,6 +633,59 @@ for col=1:size(Q,1)
     Qeval = cat(1,Qeval,Qcol);
 end
 % Qeval
+
+
+% othermatlistの計算
+Qothereval = [];
+for o=1:length(othermatlist)
+    other = othermatlist{1,o};
+    for col=1:size(other,1)
+        % 各行ベクトル
+        Qcol = [];
+        for row=1:size(other,2)
+            % 各行列要素
+            % disp(col+" "+row)
+            termlist = other{col,row};
+            %
+            Qevalelem = 0;
+            for i=1:size(termlist,1)
+                term = termlist{i,1};
+                qeval = 1;
+                for j=1:size(term,2)
+                    var = term{1,j};
+                    if var == "-"
+                        qeval = -qeval;
+                    else
+                        qeval = qeval * evalin('base', var);
+                    end
+                end
+                Qevalelem = Qevalelem + qeval;
+            end
+
+            % 要素に項がない場合，ゼロ行列を入れる
+            if isempty(termlist)
+                % col,row
+                z = zeros(colsize(col),rowsize(row));
+                Qcol = cat(2,Qcol,z);
+            else
+                Qcol = cat(2,Qcol,Qevalelem);
+            end
+            % Qcol
+
+        end
+        Qothereval = cat(1,Qothereval,Qcol);
+    end
+end
+
+if isempty(Qothereval)
+    Qothereval = zeros(size(Qeval));
+end
+    
+% Qothereval
+
+% matlistとothermatlistの計算結果を合計する
+Qeval = Qeval + Qothereval;
+
 
 
 % 受け取った引数牙そもそもLMIの場合，そのまま計算結果を返す
@@ -790,7 +869,7 @@ function regdeclare()
     % 関数
     % ex) eye(n,n)
     global FUNC
-    FUNC = "\w+\([\w\,\']+\)(\')*";
+    FUNC = "\w+\([\w\,\'\-\+\*]+\)(\')*";
     
     % 関数もしくは変数名, 値を持つトークン
     % ex) eye(n), A'
