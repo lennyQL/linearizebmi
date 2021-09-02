@@ -120,15 +120,20 @@ rownum = 1;     % 列数
 % 複数行列の和に対応
 matrixlist = {}; % 行列[...]の字句解析結果(smatrix)を格納する, 最終的に1つのsmatrixにする
 
+% 変数名(関数名)のマッチング
+global FUNC_OR_VAR
+i = 0;
+
 % デバッグ用:
 % disp("==========")
 % 入力文字列を1文字ずつ解析
-for i=1:strlength(S)
+% for i=1:strlength(S)
+while i < strlength(S)
+    i = i+1;
     % デバッグ用:
     % disp("-----")
     % disp(colnum+" "+rownum)
-    % S(i),varstr,varlist,termlist
-    
+    % i,S(i),varstr,termlist
 
     
     % 変数の文字列の場合
@@ -138,7 +143,10 @@ for i=1:strlength(S)
     if regexp(S(i), "[\w\(\,\)\']")
         % どこまでが変数名かを推定する
         % 変数名の更新
-        varstr = varstr + S(i);
+        % varstr = varstr + S(i);
+        [varstr,startidx,endidx] = regexp(S(i:end),FUNC_OR_VAR,'match','once');
+        varstr = string(varstr);
+        i = i + endidx - 1;
         if i == strlength(S) 
             % 終端文字の場合，varlistをtermlistに追加
             % "A]"とかだと別処理が必要，"[...]"の処理
@@ -352,6 +360,8 @@ end
 % smatrix{1,2}
 % columlist{1,3}{2,1}
 % smatrix{1,3}{2,1}
+
+% [a,b] = cellfun(@cellfuntest,smatrix)
 
 
 %% 線形項と双線形項の分離
@@ -869,7 +879,8 @@ function regdeclare()
     % 関数
     % ex) eye(n,n)
     global FUNC
-    FUNC = "\w+\([\w\,\'\-\+\*]+\)(\')*";
+    % FUNC = "\w+\([\w\,\'\-\+\*]+\)(\')*";
+    FUNC = "\w+\((?:[^\(\)]|\w+\([^\)]*\))*\)(\')*";
     
     % 関数もしくは変数名, 値を持つトークン
     % ex) eye(n), A'
@@ -1102,6 +1113,7 @@ end
 %% 行列の転置([...;...])'を展開する関数，文字列のままで
 function S = transposematrix(S)
 
+    regdeclare();
     global MAT_TRANSPOSE
     global VEC
     global MAT_COL
