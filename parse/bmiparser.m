@@ -29,7 +29,7 @@ function [LMI,BMI,gBMI] = bmiparser(S, vlist, v0list, G)
 %
 %
 %   現段階：
-%       ・()を使った分配法則や転置が可能, ()の入れ子は対応できていない
+%       ・()を使った分配法則や転置が可能
 %       ・数値を直接記述した場合のスカラー倍にまだ対応できていない, 変数名は可能
 %       ・行列[]の和による記述が可能
 %       ・ベクトル同士の積による行列の記述が可能
@@ -48,7 +48,7 @@ X0str=v0list{1};
 Y0str=v0list{2};
 
 
-%% 字句解析の前処理
+%% 字句解析の前処理(pre-process)
 
 % 正規表現用変数の初期化
 % regdeclare関数内で定義された変数の使用例
@@ -146,7 +146,7 @@ while i < strlength(S)
         % varstr = varstr + S(i);
         [varstr,startidx,endidx] = regexp(S(i:end),FUNC_OR_VAR,'match','once');
         varstr = string(varstr);
-        i = i + endidx - 1;
+        i = i + endidx - 1; % update while loop index
         if i == strlength(S) 
             % 終端文字の場合，varlistをtermlistに追加
             % "A]"とかだと別処理が必要，"[...]"の処理
@@ -285,29 +285,12 @@ while i < strlength(S)
     end
     
 end
+
 % デバッグ
 % columlist
-% columlist{1,5}{1,1}
 % colnum, rownum
-% smatrix = cat(2,cat(2,smatrix{1,1},smatrix{2,1}),smatrix{3,1});
-% smatrix = reshape(smatrix,[colnum,rownum])
-
-% smatrixの生成
-% Sの最終形態(cellの行列), columlistを縦に並べたもの
-% if colnum > 1 || rownum > 1
-%     % ブロック行列の場合
-%     smatrix = reshape(columlist,colnum,rownum).';
-% else
-%     % そうでない場合
-%     smatrix = columlist;
-% end
-% cat(2,matrixlist,smatrix)
-% cat(2,matrixlist,{smatrix})
+% smatrix
 % matrixlist
-% matrixlist{1,1}
-% matrixlist{1,1}{1,1}
-% matrixlist{1,1}{1,1}{1,1}
-% matrixlist{1,1}{1,1}{1,1}{1,1}
 
 
 
@@ -322,9 +305,9 @@ othermatlist = {};  % othermatlist: smatrixよりsizeが小さい行列，関数
 for i=1:length(matrixlist)
     mat = matrixlist{1,i};
     if isequal(size(mat),[max(scol) max(srow)])
-        matlist = cat(2,matlist,{mat});
+        matlist = updateList(matlist,mat);
     else
-        othermatlist = cat(2,othermatlist,{mat});
+        othermatlist = cat(2,othermatlist,mat);
     end
 end
 
@@ -348,19 +331,6 @@ end
 
 % デバッグ用:
 % smatrix
-% smatrix{1,1}
-% smatrix{1,1}{1,1}
-% smatrix{1,1}{1,1}{1,1}
-% smatrix{2,1}{1,2}
-% smatrix{2,1}{1,2}{1,1}
-% smatrix{2,1}{1,2}{1,2}
-% smatrix{3,1}{1,3}{1,2}
-
-% smatrix(1,2)
-% smatrix{1,2}
-% columlist{1,3}{2,1}
-% smatrix{1,3}{2,1}
-
 % [a,b] = cellfun(@cellfuntest,smatrix)
 
 
@@ -413,11 +383,6 @@ end
 % linearmatrix
 % binearmatrix
 
-% linearmatrix{1,1}{2,1}
-% linearmatrix{1,1}{2,1}
-% binearmatrix{1,1}{1,1}
-
-
 
 %% 双線形項のheの分離
 
@@ -427,6 +392,7 @@ hematrix = binearmatrix;  % 転置あり行列
 orgtermlist = {};    % 項のリスト(初期化)
 hetermlist = {};     % 項の転置ありリスト(初期化)
 
+% 項に'があったら，hematrixに追加
 for col=1:size(binearmatrix,1)
     % 各行ベクトル
     for row=1:size(binearmatrix,2)
@@ -463,13 +429,10 @@ for col=1:size(binearmatrix,1)
         hetermlist = {};
     end
 end
-% 'があったら，hematrixに追加
+
 % デバッグ用:
 % orgmatrix
 % hematrix
-% 
-% orgmatrix{1,1}{1,1}
-% hematrix{1,1}{1,1}
 
 
 %% BMI一般化，Q,L,N,Rの取得
@@ -510,17 +473,17 @@ for col=1:size(orgmatrix,1)
             % "PK"の場合： "1*P*1*K*1"と処理する
             if isempty(l) 
                 l = {"1eye"};
-            elseif l{1,1} == "-"
+            elseif l{1,1} == "-" && length(l) == 1
                 l = ["-", "1eye"];
             end
             if isempty(n)
                 n = {"1eye"};
-            elseif n{1,1} == "-"
+            elseif n{1,1} == "-" && length(n) == 1
                 n = ["-", "1eye"];
             end
             if isempty(r)
                 r = {"1eye"};
-            elseif r{1,1} == "-"
+            elseif r{1,1} == "-" && length(r) == 1
                 r = ["-", "1eye"];
             end
 
@@ -551,10 +514,9 @@ for col=1:size(orgmatrix,1)
         L = updateList(L,{"0zero"},1);
     end
 end
+
 % デバッグ用:
-% L{1,1}
-% isempty(L{1,1})
-% Q,Q{3,1}{2,1}
+% Q
 % L,N,R
 
 
@@ -563,7 +525,6 @@ end
 % 使用例:
 %   evalin('base','X'): workspaceの変数名Xの値を取得する
 %   evalin('base','eye(p1)'): workspaceの変数の値を使って関数eye(p1)を実行する
-
 
 
 % 決定変数の取得
@@ -598,107 +559,23 @@ end
 
 
 % 線形項の計算
-Qeval = [];
-for col=1:size(Q,1)
-    % 各行ベクトル
-    Qcol = [];
-    for row=1:size(Q,2)
-        % 各行列要素
-        % disp(col+" "+row)
-        termlist = Q{col,row};
-        %
-        Qevalelem = 0;
-        for i=1:size(termlist,1)
-            term = termlist{i,1};
-            qeval = 1;
-            for j=1:size(term,2)
-                var = term{1,j};
-                if var == "-"
-                    qeval = -qeval;
-                else
-%                     if regexp(var,'(?<!\D+)\d+')
-%                         % 数値の場合
-%                         qeval = qeval * str2double(var);
-%                     else
-%                         % 変数名の場合
-%                         qeval = qeval * evalin('base', var);
-%                     end
-                    qeval = qeval * evalin('base', var);
-                end
-            end
-            Qevalelem = Qevalelem + qeval;
-        end
-        
-        % 要素に項がない場合，ゼロ行列を入れる
-        if isempty(termlist)
-            % col,row
-            z = zeros(colsize(col),rowsize(row));
-            Qcol = cat(2,Qcol,z);
-        else
-            Qcol = cat(2,Qcol,Qevalelem);
-        end
-        % Qcol
-        
-    end
-    Qeval = cat(1,Qeval,Qcol);
-end
-% Qeval
-
+cellQ = cellfun(@calclinear,Q,'UniformOutput',false);
+Qeval = cell2mat(cellQ);
 
 % othermatlistの計算
-Qothereval = [];
-for o=1:length(othermatlist)
-    other = othermatlist{1,o};
-    for col=1:size(other,1)
-        % 各行ベクトル
-        Qcol = [];
-        for row=1:size(other,2)
-            % 各行列要素
-            % disp(col+" "+row)
-            termlist = other{col,row};
-            %
-            Qevalelem = 0;
-            for i=1:size(termlist,1)
-                term = termlist{i,1};
-                qeval = 1;
-                for j=1:size(term,2)
-                    var = term{1,j};
-                    if var == "-"
-                        qeval = -qeval;
-                    else
-                        qeval = qeval * evalin('base', var);
-                    end
-                end
-                Qevalelem = Qevalelem + qeval;
-            end
-
-            % 要素に項がない場合，ゼロ行列を入れる
-            if isempty(termlist)
-                % col,row
-                z = zeros(colsize(col),rowsize(row));
-                Qcol = cat(2,Qcol,z);
-            else
-                Qcol = cat(2,Qcol,Qevalelem);
-            end
-            % Qcol
-
-        end
-        Qothereval = cat(1,Qothereval,Qcol);
-    end
-end
-
+cellQother = cellfun(@calclinear,othermatlist,'UniformOutput',false);
+Qothereval = cell2mat(cellQother);
+% なければ0
 if isempty(Qothereval)
     Qothereval = zeros(size(Qeval));
 end
-    
-% Qothereval
 
 % matlistとothermatlistの計算結果を合計する
 Qeval = Qeval + Qothereval;
 
 
 
-% 受け取った引数牙そもそもLMIの場合，そのまま計算結果を返す
+% 受け取った引数がそもそもLMIの場合，そのまま計算結果を返す
 if isequal(cellfun(@isempty,binearmatrix),ones(size(binearmatrix)))
     LMI = Qeval;
     BMI = LMI;
@@ -812,7 +689,6 @@ LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0
         (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',...
          -(G+G')];
 
-
      
 %% デバッグ用出力, 一般化BMIの情報
 %%%% heなし
@@ -835,317 +711,5 @@ gBMI.R = Reval;
 
 LMI = LMIeval;
 BMI = BMIeval;
-
-end
-
-
-
-%% 内部関数群
-%% Listの更新（追加）と初期化
-function [L,V] = updateList(L,V,n)
-    % ex) 
-    %   LにVを追加，Vを初期化:
-    %     [L,V] = updateList(L,V)
-    %   LにVを追加のみ: 
-    %     L = updateList(L,V)
-
-    if nargin<3
-        n = 2;
-    end
-
-    % Listの追加
-    % n=1: 縦に追加
-    % n=2: 横に追加
-    L = cat(n,L,{V});
-    
-    if isa(V, "string")
-        % stringの初期化
-        V = "";
-    elseif isa(V, "cell")
-        % cellの初期化
-        V = {};
-    end
-end
-
-%% 正規表現用マジックナンバーの宣言(初期化)する関数，正規表現を要素ごとに分解
-function regdeclare()
-    clear regdeclare
-
-    % 変数名，転置付き
-    % ex) A, B1'
-    global VAR
-    VAR = "\w+(\')*";
-    
-    % 関数
-    % ex) eye(n,n)
-    global FUNC
-    % FUNC = "\w+\([\w\,\'\-\+\*]+\)(\')*";
-    FUNC = "\w+\((?:[^\(\)]|\w+\([^\)]*\))*\)(\')*";
-    
-    % 関数もしくは変数名, 値を持つトークン
-    % ex) eye(n), A'
-    global FUNC_OR_VAR
-    FUNC_OR_VAR = "("+FUNC+"|"+VAR+")";
-    
-    % 多項式の項
-    % ex) A, A*B1, eye(n)*A'
-    global TERM
-    TERM = FUNC_OR_VAR+"(\*"+FUNC_OR_VAR+")*";
-    
-    % 多項式
-    % ex) A+B1'*eye(n)
-    global POLY
-    POLY = FUNC_OR_VAR+"((+|-|*)"+FUNC_OR_VAR+")*";
-    
-    
-    % 括弧の前後に積がない & 関数の括弧でない
-    % ex) (A+B*C)
-    % eye(n)とはマッチングしない
-    global BRACKET_POLY
-    BRACKET_POLY = "(?<!\w+)"+"\("+POLY+"\)";
-    
-    % 括弧の転置
-    % ex) (A+B*C)'
-    global BRACKET_TRANSPOSE
-    BRACKET_TRANSPOSE = BRACKET_POLY+"\'";
-    
-    % 括弧と括弧の積
-    % ex) (A+B*C)*(A+B*C)
-    % eye(n)*(A+B*C) とはマッチングしない
-    global PROD_BRACKET 
-    global BRACKET_PROD_BRACKET
-    PROD_BRACKET = "(\*"+BRACKET_POLY+")+"+"(?!.*\))";
-    BRACKET_PROD_BRACKET = BRACKET_POLY + "(\*"+BRACKET_POLY+")+";
-    
-    % 括弧の前に積
-    % ex) D*(A+B*C) 
-    global LEFT_PROD 
-    global LEFT_PROD_BRACKET
-    LEFT_PROD = "("+FUNC_OR_VAR+"\*)+";
-    LEFT_PROD_BRACKET = LEFT_PROD + BRACKET_POLY;
-    
-    % 括弧の後に積
-    % ex) (A+B*C)*D
-    % eye(n)*D とはマッチングしない
-    global PROD_RIGHT 
-    global BRACKET_PROD_RIGHT
-    PROD_RIGHT = "(\*"+FUNC_OR_VAR+")+"+"(?!.*\))";
-    BRACKET_PROD_RIGHT = BRACKET_POLY + "(\*"+FUNC_OR_VAR+")+";
-    
-    
-    % 縦ベクトルと横ベクトルの積
-    global VEC
-    global PROD_VEC
-    global VEC_PROD_VEC
-    VEC = "\[[^\[]*?\]";
-    PROD_VEC = "\*" + VEC;
-    VEC_PROD_VEC = VEC + PROD_VEC; 
-    
-    
-    % 括弧の多項式
-    % ex) (A+B*C)*A, A*B, A+(B+C*K)
-    global BRACKET_POLY_OR_POLY
-    global POLY_BRACKET
-    BRACKET_POLY_OR_POLY = "("+BRACKET_POLY+"|"+POLY+")";
-    POLY_BRACKET = BRACKET_POLY_OR_POLY+"((+|-|*)"+BRACKET_POLY_OR_POLY+")*";
-    
-    % 行列の転置
-    global MAT_TRANSPOSE
-    global MAT_COL
-    MAT_TRANSPOSE = "("+ "(?<!\w+)"+"\("+VEC+"\)"+"\'" +"|" +VEC+"\'" +")";
-    % MAT_COL = "("+BRACKET_POLY_OR_POLY+"(\s)*)+"+"(?=(;|]))";
-    MAT_COL = "(?<=([|;))"+"[^;]+"+"(?=(;|]))";
-    
-end
-
-%% 括弧()を展開する関数
-function S = divbracket(S)
-
-    % 対応する正規表現
-    % TODO:
-    %   ブロック行列を括弧で囲んだ表現 ([...])'をどう処理するか
-    %   変数の前にマイナス-があるときどう処理するか
-
-    
-    % 正規表現用変数(global)を呼び出す
-    regdeclare();
-    global FUNC_OR_VAR
-    global TERM
-    global POLY
-    global BRACKET_POLY
-    global BRACKET_TRANSPOSE
-    global PROD_BRACKET 
-    global BRACKET_PROD_BRACKET
-    global LEFT_PROD 
-    global LEFT_PROD_BRACKET
-    global PROD_RIGHT 
-    global BRACKET_PROD_RIGHT
-    
-    
-    % 括弧の転置，括弧内の積の順序が逆転
-    if regexp(S,BRACKET_TRANSPOSE)
-        % 正規表現に対応する文字列
-        bracket = regexp(S,BRACKET_TRANSPOSE,'match','once');
-        % 括弧の中の式
-        bracketin = regexp(bracket,POLY,'match','once');
-        %
-        % 括弧の中の各項
-        term = regexp(bracketin,TERM,'match');
-        % 括弧の中の文字列(最終的に求めたいもの)
-        bracketstr = "";
-        for i=1:length(term)
-            % 各項の文字列
-            termstr = "";
-            % 各項の変数のcell配列
-            var = regexp(term{1,i},FUNC_OR_VAR,'match');
-            for j=1:length(var)
-                % 配列を逆から処理，転置'を加えて*で連結
-                if j==1
-                    termstr = termstr + string(var(end-j+1)) + "'";
-                else
-                    termstr = termstr + "*" + string(var(end-j+1)) + "'";
-                end
-            end
-
-            % 上で処理した各項を+で連結
-            if i==1
-                bracketstr = bracketstr + termstr;
-            else
-                bracketstr = bracketstr + "+" + termstr;
-            end
-        end
-        % 括弧()で囲み置換する
-        rep = "(" + bracketstr + ")";
-        S = regexprep(S,BRACKET_TRANSPOSE,rep,'once');
-    
-    
-    % 括弧と括弧の積
-    elseif regexp(S,BRACKET_PROD_BRACKET)
-        % 正規表現と対応する文字列
-        bracketterm = regexp(S,BRACKET_PROD_BRACKET,'match','once');
-        % 括弧との積
-        mult = regexp(bracketterm,PROD_BRACKET,'match','once');
-        % 括弧の項
-        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
-        % 括弧の中の式
-        bracketin = regexp(bracket,POLY,'match','once');
-        % 置き換える文字列，括弧の中の各項との積
-        rep = regexprep(bracketin,TERM,"$0"+mult);
-        % 括弧を展開した式に変換する
-        S = regexprep(S,BRACKET_PROD_BRACKET,rep,'once');
-        
-        
-    % 括弧の前に積
-    elseif regexp(S,LEFT_PROD_BRACKET)
-        % 正規表現と対応する文字列
-        bracketterm = regexp(S,LEFT_PROD_BRACKET,'match','once');
-        % 括弧との積
-        mult = regexp(bracketterm,LEFT_PROD,'match','once');
-        % 括弧の項
-        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
-        % 括弧の中の式
-        bracketin = regexp(bracket,POLY,'match','once');
-        % 置き換える文字列，括弧の中の各項との積
-        rep = regexprep(bracketin,TERM,mult+"$0");
-        % 括弧を展開した式に変換する
-        S = regexprep(S,LEFT_PROD_BRACKET,"("+rep+")",'once');
-        
-        
-    % 括弧の後に積
-    elseif regexp(S,BRACKET_PROD_RIGHT)
-        bracketterm = regexp(S,BRACKET_PROD_RIGHT,'match','once');
-        mult = regexp(bracketterm,PROD_RIGHT,'match','once');
-        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
-        bracketin = regexp(bracket,POLY,'match','once');
-        rep = regexprep(bracketin,TERM,"$0"+mult);
-        S = regexprep(S,BRACKET_PROD_RIGHT,rep,'once');
-    
-        
-    % 括弧の前後に積がない，括弧を外す
-    elseif regexp(S,BRACKET_POLY)
-        bracketterm = regexp(S,BRACKET_POLY,'match','once');
-        bracket = regexp(bracketterm,BRACKET_POLY,'match','once');
-        rep = regexp(bracket,POLY,'match','once');
-        S = regexprep(S,BRACKET_POLY,rep,'once');
-    end
-    
-end
-
-
-%% ベクトルの積[...;...]*[... ...]を展開する関数
-function S = prodvec(S)
-    
-    regdeclare();
-    global VEC
-    global PROD_VEC
-    global VEC_PROD_VEC
-    global POLY
-
-    
-    if regexp(S,VEC_PROD_VEC)
-        vecprodterm = regexp(S,VEC_PROD_VEC,'match','once');
-        left = regexp(vecprodterm,VEC,'match','once');
-        right = regexp(vecprodterm,PROD_VEC,'match','once');
-        lexp = regexp(left,POLY,'match');
-        rexp = regexp(right,POLY,'match');
-        l = "("+lexp'+")";
-        r = "("+rexp+")";
-        matrix = append(l,"*",r);
-%         matrix'
-        rep = "[";
-        for i=1:size(matrix,1)
-            col = strjoin(matrix(i,:)," ");
-            rep = rep+col;
-            if i ~= size(matrix,1)
-                rep = rep+";";
-            else
-                rep = rep+"]";
-            end 
-        end
-    end
-    S = regexprep(S,VEC_PROD_VEC,rep,'once');
-    S = char(S);
-
-
-end
-
-
-%% 行列の転置([...;...])'を展開する関数，文字列のままで
-function S = transposematrix(S)
-
-    regdeclare();
-    global MAT_TRANSPOSE
-    global VEC
-    global MAT_COL
-    global POLY_BRACKET
-    trans = regexp(S,MAT_TRANSPOSE,'match','once');
-    matrix = regexp(trans,VEC,'match','once');
-    col = regexp(matrix,MAT_COL,'match');
-    item = regexp(col,POLY_BRACKET,'match');
-
-    for i=1:length(item)
-        if i == 1
-            itemlist = item{1,i};
-        else
-            itemlist = cat(1,itemlist,item{1,i});
-        end 
-    end
-    % itemlist
-    % itemlist = itemlist'
-    itemlistT = "("+itemlist'+")'";
-
-    smat = "[";
-    for i=1:size(itemlistT,1)
-        col = strjoin(itemlistT(i,:)," ");
-        smat = smat+col;
-        if i ~= size(itemlistT,1)
-            smat = smat+";";
-        else
-            smat = smat+"]";
-        end 
-    end
-    
-    S = regexprep(S,MAT_TRANSPOSE,smat,'once');
-    S = char(S);
 
 end
