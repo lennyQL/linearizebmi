@@ -1,5 +1,5 @@
 %% 出力フィードバック制御のBMI制約についてのテスト
-%   bmiparserを評価するテストプログラム
+%   linearizebmiを評価するテストプログラム
 %   Hinf問題，極配置問題2つの制約それぞれ評価する
 
 % 次元
@@ -71,14 +71,14 @@ disp(newline)
 disp("###*** パターン1 ***###")
 disp("# 括弧()なし，1つの行列による記述")
 
-% Hinf問題の制約の左辺，bmiparserのための制約の記述
+% Hinf問題の制約の左辺，linearizebmiのための制約の記述
 Fstr = "[X*A+X*B2*Y*C2+A'*X'+C2'*Y'*B2'*X'  X*B1+X*B2*Y*D21  C1'+C2'*Y'*D12';"+...
         "B1'*X'+D21'*Y'*B2'*X'               -I               D11'+D21'*Y'*D12';"+...
         "C1+D12*Y*C2                         D11+D12*Y*D21    -I]";
 
 % parser(自作した関数)
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 % 評価，真値との差
@@ -104,7 +104,7 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)  (C1+D12*Y*C2)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21    -I]";
     
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -126,7 +126,7 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1,p1)*eye(p1)]";
     
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -156,7 +156,7 @@ Fstr = "[[X*(A+B2*Y*C2)  X*(B1+B2*Y*D21)  zeros(n,p1);"+...
         "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]]";               % 線形項
     
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -182,7 +182,7 @@ Fstr = "[[X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)]"... % �
         "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]]";            % 線形項
     
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -210,7 +210,7 @@ Fstr = "[[X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)]"... % �
         "-blkdiag(zeros(n),eye(m1),eye(p1))]";  % 対角ブロックの単位行列
     
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -234,7 +234,7 @@ Fstr = "[[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+..
         "blkdiag(zeros(n),-eye(m1+p1))+zeros(10)]";
     
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -263,7 +263,7 @@ Fstr(3,2) = "D11+D12*Y*D21";
 Fstr(3,3) = "-eye(p1,p1)";
     
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -301,7 +301,7 @@ Fstr = "-X*(-A-B2*Y*C2)+(A+(-B2)*(-Y)*C2)'*X'";
 % Fstr = "eye(n)*X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'*eye(n,n)+(zeros(n)-zeros(n))*(zeros(n)+zeros(n))";
 
 tStart = tic;
-[LMIauto, BMIauto] = bmiparser(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 %
@@ -312,6 +312,18 @@ disp("BMItt: "+evaltest(BMItt));
 disp("LMItt: "+evaltest(LMItt));
 
 cll = cat(1,cll,{"9. 極配置",evaltest(BMItt),evaltest(LMItt),tEnd});
+
+%% 構文errorテスト
+
+Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X';"
+[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+
+%%
+
+Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
+        "(B1+B2*Y*D21)'*X'               -eye(p1)+zeros(p1)  (D11+D12*Y*D21)';"+...
+        "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1,p1)*eye(p1)]";
+[LMIauto, BMIauto, G] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
 
 
 %% パターンテストの結果
