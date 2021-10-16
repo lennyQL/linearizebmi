@@ -4,4 +4,4 @@ A support program that implements the overbounding approximation method for MATL
 
 The support program provides a function that converts BMIs into sufficient LMIs automatically. 
 
-Document website [https://github.com/lennyQL/linearizebmi-doc]
+Document website https://lennyql.github.io/linearizebmi-doc
