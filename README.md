@@ -1,5 +1,7 @@
-# BMI パーサー
+# linearizebmi
 
-BMI制約を拡大LMIに変換するパーサー
+A support program that implements the overbounding approximation method for MATLAB and [YALMIP](https://github.com/yalmip/YALMIP).
 
-yalmip依存
+The support program provides a function that converts BMIs into sufficient LMIs automatically. 
+
+Document website [https://github.com/lennyQL/linearizebmi-doc]
