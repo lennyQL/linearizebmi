@@ -1,4 +1,4 @@
-function [LMI,BMI,gBMI] = bmiparser(S, vlist, v0list, G)
+function [LMI,BMI,gBMI] = linearizebmi(S, vlist, v0list, G)
 % BMIの文字列を受け取り，逐次LMIの値を返すパーサー
 %   
 %   OUTPUT:
@@ -17,7 +17,7 @@ function [LMI,BMI,gBMI] = bmiparser(S, vlist, v0list, G)
 %
 %
 %   ※ワークスペースの変数の値を利用して計算するので，
-%     bmiparser関数を呼び出す前に，
+%     linearizebmi関数を呼び出す前に，
 %     あらかじめに変数を宣言する必要がある．
 %       ex) 
 %           X = sdpvar(2,2)
@@ -25,7 +25,7 @@ function [LMI,BMI,gBMI] = bmiparser(S, vlist, v0list, G)
 %           A = rand(2,3)
 %           X0= rand(2,2) 
 %           Y0= rand(3,2)
-%           LMI = bmiparser("X*A*Y+(X*A*Y)'",{'X','Y'},{'X0','Y0'})
+%           LMI = linearizebmi("X*A*Y+(X*A*Y)'",{'X','Y'},{'X0','Y0'})
 %
 %
 %   現段階：
@@ -47,6 +47,9 @@ Ystr =vlist{2};
 X0str=v0list{1};
 Y0str=v0list{2};
 
+
+%% 入力の構文エラーチェック
+evalin('base',S);
 
 %% 字句解析の前処理(pre-process)
 

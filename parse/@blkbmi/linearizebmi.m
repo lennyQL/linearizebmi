@@ -1,4 +1,4 @@
-function [LMI,BMI,gBMI] = bmiparser(X,vlist,v0list,G)
+function [LMI,BMI,gBMI] = linearizebmi(X,vlist,v0list,G)
 
 [n,m] = size(X.blocks);
 
@@ -32,9 +32,9 @@ C = "["+C+"]"
 if nargin == 1
     LMI = S;
 elseif nargin == 3
-    [LMI,BMI,gBMI] = bmiparser(C,vlist,v0list);
+    [LMI,BMI,gBMI] = linearizebmi(C,vlist,v0list);
 elseif nargin == 4
-    [LMI,BMI,gBMI] = bmiparser(C,vlist,v0list,G);
+    [LMI,BMI,gBMI] = linearizebmi(C,vlist,v0list,G);
 else
     error('nargin must be 1 or 3 or 4.')
 end
