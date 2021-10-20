@@ -49,7 +49,13 @@ Y0str=v0list{2};
 
 
 %% 入力の構文エラーチェック
-evalin('base',S);
+try
+    % bmiのstrのままevalinで実行することで
+    % yalmip本体のエラー処理に任せる
+    textchecker = evalin('base',S);
+catch ME
+    rethrow(ME)
+end
 
 %% 字句解析の前処理(pre-process)
 
@@ -693,6 +699,104 @@ LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0
          -(G+G')];
 
      
+%% デバッグ用出力，Q,L,N,R,Gのstring
+% string配列で表現
+
+Qchar = linear2str(Q,colsize,rowsize);
+
+
+% Lの文字列
+Lchar = [];
+for i=1:length(L)
+    var = L{i,1}{1,1};
+    if var == "1eye"
+        var = [func2str(@eye) '(' num2str(size(X,1)) ')'];
+    elseif var == "0zero"
+        var = [func2str(@zeros) '(' num2str(rowsize(i)) ',' num2str(size(Leval,2)) ')'];
+    end
+    Lchar = [Lchar; string(var)];
+end
+
+% Nの文字列
+Nchar = [];
+for i=1:length(N)
+    var = N{i,1}{1,1};
+    if var == "1eye"
+        var = [func2str(@eye) '(' num2str(size(X,2)) ',' num2str(size(Y,1)) ')'];
+    end
+    Nchar = [Nchar; string(var)];
+end
+
+% Rの文字列
+Rchar = [];
+for i=1:length(R)
+    var = R{i,1}{1,1};
+    if var == "1eye"
+        var = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
+    elseif var == "0zero"
+        var = [func2str(@zeros) '(' num2str(size(Reval,1)) ',' num2str(rowsize(i)) ')'];
+    end
+    Rchar = [Rchar string(var)];
+end
+
+
+% Gの文字列
+if nargin<4
+    Gchar = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
+elseif isa(G,'string') || isa(G,'char') 
+    Gchar = G;
+end
+Gchar = string(Gchar);
+
+
+Qchar, Lchar, Nchar, Rchar, Gchar
+     
+%% デバッグ用出力，拡大LMIのstring
+
+% Qをheで分解する，転置を除く
+HEQmatrix = Q; % 転置なし行列
+HEQtermlist = {};    % 項のリスト(初期化)
+
+for col=1:size(Q,1)
+    % 各行ベクトル
+    for row=1:size(Q,2)
+        % 各行列要素
+        % disp(col+" "+row)
+        termlist = Q{col,row};
+        for i=1:size(termlist,1)
+            % 要素の各項
+            term = termlist{i,1};
+            for j=1:size(term,2)
+                % 項のそれぞれの変数
+                var = term{1,j};
+                if regexp(var, "\'")
+                    % var
+                    % hetermlist: 転置あり
+                    % hetermlist = updateList(hetermlist,term,1);
+                    break
+                else
+                    % termlist: 転置なし
+                    if col == row && col >= 2
+                        % (2,2),(3,3)要素は1/2倍する
+                        % スカラー倍を実装しないとできない
+                        term = updateList(term,"0.5",2);
+                    end
+                    HEQtermlist = updateList(HEQtermlist,term,1);
+                    break
+                end
+            end
+        end
+        % 転置なし行列の更新
+        HEQmatrix(col,row) = {HEQtermlist};
+        HEQtermlist = {};
+    end
+end
+% HEQmatrix
+
+% Qのheなしの文字列
+HEQchar = linear2str(HEQmatrix,colsize,rowsize)
+
+
 %% デバッグ用出力, 一般化BMIの情報
 %%%% heなし
 % Q0= Qeval; % 線形項
@@ -701,11 +805,28 @@ LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0
 % R = Reval; % 双線形項の定数行列(右)
 
 gBMI.expression = 'Q + He( L * X * N * Y * R )';
-gBMI.sdpvar = {Xstr,Ystr};
-gBMI.Q = Qeval;
-gBMI.L = Leval;
-gBMI.N = Neval;
-gBMI.R = Reval;
+
+% sdpvar string
+gBMI.sdpvar.expr = 'Q + He( L * X * N * Y * R )';
+gBMI.sdpvar.msg = 'sdpvarの対応する文字列';
+gBMI.sdpvar.X = [Xstr '-' X0str];
+gBMI.sdpvar.Y = [Ystr '-' Y0str];
+
+% yalmip data
+gBMI.data.expr = 'Q + He( L * X * N * Y * R )';
+gBMI.data.msg = '各行列の数値データ';
+gBMI.data.Q = Qeval;
+gBMI.data.L = Leval;
+gBMI.data.N = Neval;
+gBMI.data.R = Reval;
+
+% string
+gBMI.str.expr = 'Q + He( L * X * N * Y * R )';
+gBMI.str.msg = '各行列の文字列';
+gBMI.str.Q = Qchar;
+gBMI.str.L = Lchar;
+gBMI.str.N = Nchar;
+gBMI.str.R = Rchar;
 
 
 %% 関数の出力

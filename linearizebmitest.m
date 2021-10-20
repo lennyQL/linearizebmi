@@ -126,8 +126,15 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1,p1)*eye(p1)]";
     
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, BMIauto, g] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
+
+g
+g.sdpvar
+g.data
+g.str
+g.str.Q
+g.str.L
 
 BMItt = BMImanual - BMIauto;
 LMItt = LMImanual - LMIauto;
