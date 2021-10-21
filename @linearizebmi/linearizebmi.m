@@ -343,6 +343,13 @@ end
 % [a,b] = cellfun(@cellfuntest,smatrix)
 
 
+%% 項のマイナス(-)符号を削減
+% 奇数個: (-X)*(-Y)*(-Z) => -X*Y*Z
+% 偶数個: (-X)*(-Y)*Z    => X*Y*Z
+
+smatrix = cellfun(@rmngsign,smatrix,'UniformOutput',false);
+
+
 %% 線形項と双線形項の分離
 % 行列
 linearmatrix = smatrix; % 定数項，1次項
