@@ -22,7 +22,8 @@ for col=1:size(Q,1)
                 if isempty(qchar)
                     qchar = [qchar char(var)];
                 elseif qchar == '-'
-                    qchar = ['(' qchar char(var) ')'];
+                    % qchar = ['(' qchar char(var) ')'];
+                    qchar = [qchar char(var)];
                 else
                     qchar = [qchar '*' char(var)];
                 end

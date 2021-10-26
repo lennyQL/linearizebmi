@@ -29,6 +29,7 @@ D21=rand(p2,m1);
 D22=rand(p2,m2);
 
 % G,gammaの定数倍
+
 G = eye(size(Y,1));
 % 単位行列
 I = eye(p1);
@@ -78,7 +79,7 @@ Fstr = "[X*A+X*B2*Y*C2+A'*X'+C2'*Y'*B2'*X'  X*B1+X*B2*Y*D21  C1'+C2'*Y'*D12';"+.
 
 % parser(自作した関数)
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 % 評価，真値との差
@@ -104,7 +105,7 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)  (C1+D12*Y*C2)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21    -I]";
     
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -126,15 +127,17 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1,p1)*eye(p1)]";
     
 tStart = tic;
-[LMIauto, BMIauto, g] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, LMIstr, g, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
-g
-g.sdpvar
-g.data
-g.str
-g.str.Q
-g.str.L
+LMIauto
+LMIstr
+% g
+% g.sdpvar
+% g.data
+% g.str
+% g.str.Q
+% g.str.L
 
 BMItt = BMImanual - BMIauto;
 LMItt = LMImanual - LMIauto;
@@ -163,7 +166,7 @@ Fstr = "[[X*(A+B2*Y*C2)  X*(B1+B2*Y*D21)  zeros(n,p1);"+...
         "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]]";               % 線形項
     
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -189,7 +192,7 @@ Fstr = "[[X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)]"... % �
         "C1+D12*Y*C2   D11+D12*Y*D21  -eye(p1)]]";            % 線形項
     
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -217,7 +220,7 @@ Fstr = "[[X;zeros(m1,n);zeros(p1,n)]*[A+B2*Y*C2 B1+B2*Y*D21 zeros(n,p1)]"... % �
         "-blkdiag(zeros(n),eye(m1),eye(p1))]";  % 対角ブロックの単位行列
     
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -241,7 +244,7 @@ Fstr = "[[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+..
         "blkdiag(zeros(n),-eye(m1+p1))+zeros(10)]";
     
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -270,7 +273,7 @@ Fstr(3,2) = "D11+D12*Y*D21";
 Fstr(3,3) = "-eye(p1,p1)";
     
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 BMItt = BMImanual - BMIauto;
@@ -308,10 +311,11 @@ Fstr = "-X*(-A-B2*Y*C2)+(A+(-B2)*(-Y)*C2)'*X'";
 % Fstr = "eye(n)*X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'*eye(n,n)+(zeros(n)-zeros(n))*(zeros(n)+zeros(n))";
 
 tStart = tic;
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+[LMIauto, LMIstr,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
 
 %
+LMIstr
 BMItt = BMImanual - BMIauto;
 LMItt = LMImanual - LMIauto;
 
@@ -321,17 +325,29 @@ disp("LMItt: "+evaltest(LMItt));
 cll = cat(1,cll,{"9. 極配置",evaltest(BMItt),evaltest(LMItt),tEnd});
 
 %% 構文errorテスト
+disp(newline)
+disp("###*** パターン ***###")
+disp("# 構文errorテスト")
 
-Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X';"
-[LMIauto, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+try 
+    Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X';";
+    [LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+    disp('correct')
+catch ME
+    disp([ME.identifier ME.message]);
+end
 
-%%
+%% デフォルト
+disp(newline)
+disp("###*** パターン ***###")
+disp("# デフォルト")
 
 Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
-        "(B1+B2*Y*D21)'*X'               -eye(p1)+zeros(p1)  (D11+D12*Y*D21)';"+...
-        "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1,p1)*eye(p1)]";
-[LMIauto, BMIauto, G] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+        "(B1+B2*Y*D21)'*X'               -eye(p1)           (D11+D12*Y*D21)';"+...
+        "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1)]";
 
+LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+[LMIauto, LMIstr] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
 
 %% パターンテストの結果
 disp(newline)

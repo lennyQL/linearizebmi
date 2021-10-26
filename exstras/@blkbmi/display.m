@@ -1,9 +1,9 @@
-function F = display(X)
+function display(X)
 % DISPLAY Overloaded
 
 try
-    X = bmiparser(X);
-    display(X);
+    X = linearizebmi(X);
+    disp(X);
 catch
     disp('Incomplete block variable.');
 end
