@@ -1,4 +1,4 @@
-function [LMI,BMI,gBMI] = linearizebmi(X,vlist,v0list,G)
+function [LMI,LMIstr,gBMI,BMI] = linearizebmi(X,vlist,v0list,G)
 
 [n,m] = size(X.blocks);
 
@@ -25,16 +25,16 @@ for i=1:m
     C = cat(1,C,strjoin(S(i,:)));
 end
 C = strjoin(C,";");
-C = "["+C+"]"
+C = "["+C+"]";
 
 
 % output
 if nargin == 1
     LMI = S;
 elseif nargin == 3
-    [LMI,BMI,gBMI] = linearizebmi(C,vlist,v0list);
+    [LMI,LMIstr,gBMI,BMI] = linearizebmi(C,vlist,v0list);
 elseif nargin == 4
-    [LMI,BMI,gBMI] = linearizebmi(C,vlist,v0list,G);
+    [LMI,LMIstr,gBMI,BMI] = linearizebmi(C,vlist,v0list,G);
 else
     error('nargin must be 1 or 3 or 4.')
 end

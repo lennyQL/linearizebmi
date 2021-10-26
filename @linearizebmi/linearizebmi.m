@@ -1,8 +1,9 @@
-function [LMI,BMI,gBMI] = linearizebmi(S, vlist, v0list, G)
+function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G)
 % BMIの文字列を受け取り，逐次LMIの値を返すパーサー
 %   
 %   OUTPUT:
 %       LMI: 逐次LMI(変換後)の値
+%       LMIstr: 拡大LMIの文字列
 %       BMI: BMI(変換前)の値
 %       gBMI: 一般化BMI(He(Q+LXNYR))の行列の情報(構造体)
 %
@@ -47,9 +48,26 @@ Ystr =vlist{2};
 X0str=v0list{1};
 Y0str=v0list{2};
 
+% Gの取得
+if nargin<4
+    Gchar = [func2str(@eye) '(' num2str(size(evalin('base',Ystr),2)) ')'];
+    G = eye(size(evalin('base',Ystr),1));
+elseif isa(G,'string') || isa(G,'char') 
+    Gchar = string(G);
+    G = evalin('base',G);
+else
+    error('variabe G must be string')
+end
+
 
 %% 入力の構文エラーチェック
-evalin('base',S);
+try
+    % bmiのstrのままevalinで実行することで
+    % yalmip本体のエラー処理に任せる
+    textchecker = evalin('base',S);
+catch ME
+    rethrow(ME)
+end
 
 %% 字句解析の前処理(pre-process)
 
@@ -102,7 +120,7 @@ S = regexprep(S,"\'(\'\')*","\'");
 % 偶数個:0コ に変換
 S = regexprep(S,"(\'\')+","");
 %
-S
+% S
 
 
 %% 字句解析
@@ -335,6 +353,13 @@ end
 % デバッグ用:
 % smatrix
 % [a,b] = cellfun(@cellfuntest,smatrix)
+
+
+%% 項のマイナス(-)符号を削減
+% 奇数個: (-X)*(-Y)*(-Z) => -X*Y*Z
+% 偶数個: (-X)*(-Y)*Z    => X*Y*Z
+
+smatrix = cellfun(@rmngsign,smatrix,'UniformOutput',false);
 
 
 %% 線形項と双線形項の分離
@@ -579,11 +604,11 @@ Qeval = Qeval + Qothereval;
 
 
 % 受け取った引数がそもそもLMIの場合，そのまま計算結果を返す
-if isequal(cellfun(@isempty,binearmatrix),ones(size(binearmatrix)))
-    LMI = Qeval;
-    BMI = LMI;
-    return
-end
+% if isequal(cellfun(@isempty,binearmatrix),ones(size(binearmatrix)))
+%     LMI = Qeval;
+%     BMI = LMI;
+%     return
+% end
 
 
 % 双線形項の左定数Lの計算
@@ -674,11 +699,6 @@ Bieval = Leval * X * Neval * Y * Reval;
 BMIeval = Qeval + Bieval + Bieval';
 
 
-if nargin<4
-    G=eye(size(Y,1));
-elseif isa(G,'string') || isa(G,'char') 
-    G=evalin('base',G);
-end
 
 % 拡大した LMI 条件, heなし
 % LMIeval=[Qeval+replace(Bieval,Y,Y0)+replace(Bieval,X,X0)-Leval*X0*Neval*Y0*Reval,...
@@ -693,6 +713,181 @@ LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0
          -(G+G')];
 
      
+%% デバッグ用出力，Q,L,N,R,Gのstring
+% string配列で表現
+
+Qchar = linear2str(Q,colsize,rowsize);
+
+
+% Lの文字列
+Lchar = [];
+for i=1:length(L)
+    var = L{i,1}{1,1};
+    if var == "1eye"
+        var = [func2str(@eye) '(' num2str(size(X,1)) ')'];
+    elseif var == "0zero"
+        var = [func2str(@zeros) '(' num2str(rowsize(i)) ',' num2str(size(Leval,2)) ')'];
+    end
+    Lchar = [Lchar; string(var)];
+end
+
+% Nの文字列
+Nchar = [];
+for i=1:length(N)
+    var = N{i,1}{1,1};
+    if var == "1eye"
+        var = [func2str(@eye) '(' num2str(size(X,2)) ',' num2str(size(Y,1)) ')'];
+    end
+    Nchar = [Nchar; string(var)];
+end
+
+% Rの文字列
+Rchar = [];
+for i=1:length(R)
+    var = R{i,1}{1,1};
+    if var == "1eye"
+        var = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
+    elseif var == "0zero"
+        var = [func2str(@zeros) '(' num2str(size(Reval,1)) ',' num2str(rowsize(i)) ')'];
+    end
+    Rchar = [Rchar string(var)];
+end
+
+
+% Qchar, Lchar, Nchar, Rchar, Gchar
+     
+%% デバッグ用出力，拡大LMIのstring
+
+% Qをheで分解する，転置を除く
+HEQmatrix = Q; % 転置なし行列
+HEQtermlist = {};    % 項のリスト(初期化)
+
+for col=1:size(Q,1)
+    % 各行ベクトル
+    for row=1:size(Q,2)
+        % 各行列要素
+        % disp(col+" "+row)
+        termlist = Q{col,row};
+        for i=1:size(termlist,1)
+            % 要素の各項
+            term = termlist{i,1};
+            for j=1:size(term,2)
+                % 項のそれぞれの変数
+                var = term{1,j};
+                if regexp(var, "\'")
+                    % var
+                    % hetermlist: 転置あり
+                    % hetermlist = updateList(hetermlist,term,1);
+                    break
+                else
+                    % termlist: 転置なし
+                    if col == row && col >= 2
+                        % (2,2),(3,3)要素は1/2倍する
+                        % スカラー倍を実装しないとできない
+                        term = updateList(term,"0.5",2);
+                    end
+                    HEQtermlist = updateList(HEQtermlist,term,1);
+                    break
+                end
+            end
+        end
+        % 転置なし行列の更新
+        HEQmatrix(col,row) = {HEQtermlist};
+        HEQtermlist = {};
+    end
+end
+% HEQmatrix
+
+% Qのheなしの文字列
+HEQchar = linear2str(HEQmatrix,colsize,rowsize);
+
+% 拡大LMIのstring作成
+% XNY_: X0_N_Y0 + (X-X0)_N_Y0 + X0_N_(Y-Y0)
+Xchar = char(Xstr);
+X0char = char(X0str);
+Ychar = char(Ystr);
+Y0char = char(Y0str);
+X0_N_Y0 = [X0char '*' char(Nchar) '*' Y0char];
+Xd_N_Y0 = ['(' Xchar '-' X0char ')' '*' char(Nchar) '*' Y0char];
+X0_N_Yd = [X0char '*' char(Nchar) '*' '(' Ychar '-' Y0char ')'];
+XNY_ = [X0_N_Y0 '+' Xd_N_Y0 '+' X0_N_Yd];
+% L(XNY_)R
+L_XNY_R = [];
+for i=1:length(Lchar)
+    list = [];
+    for j=1:length(Rchar)
+        if regexp(Lchar(i), "zeros")
+            l = char(Lchar(i));
+        elseif regexp(Rchar(i), "zeros")
+            l = char(Rchar(i));
+        elseif regexp(Lchar(i), "eye")
+            l = ['comp*' char(Rchar(j))];
+        elseif regexp(Rchar(i), "eye")
+            l = ['comp*' char(Rchar(j))];
+        elseif regexp(Lchar(i), "eye") && regexp(Rchar(i), "eye")
+            l = 'comp';
+        else
+            l = [char(Lchar(i)) '*comp*' char(Rchar(j))];
+        end
+        list = [list string(l)];
+    end
+    L_XNY_R = [L_XNY_R; list];
+end
+% Q0 + L_XNY_R
+QLXNYR = [];
+for i=1:size(HEQchar,1)
+    list = [];
+    for j=1:size(HEQchar,2)
+        if regexp(L_XNY_R(i,j), "zeros")
+            l = char(HEQchar(i,j));
+        else
+            l = [char(HEQchar(i,j)) '+' char(L_XNY_R(i,j))];
+        end
+        list = [list string(l)];
+    end
+    QLXNYR = [QLXNYR; list];
+end
+
+% LXN
+LXN = [];
+for i=1:length(Lchar)
+    if regexp(Lchar(i), "zeros")
+        l = regexprep( Lchar(i), ",\w)", ","+string(size(Neval,2))+")" );
+    elseif regexp(Lchar(i), "eye")
+        l = ['(' Xchar '-' X0char ')*' char(Nchar)];
+    elseif regexp(Nchar(i), "eye")
+        l = [char(Lchar(i)) '*(' Xchar '-' X0char ')'];
+    elseif regexp(Lchar(i), "eye") && regexp(Rchar(i), "eye")
+        l = [Xchar '-' X0char];
+    else
+        l = [char(Lchar(i)) '*(' Xchar '-' X0char ')*' char(Nchar)];
+    end
+    LXN = [LXN; string(l)];
+end
+
+% GYR
+GYR = [];
+for i=1:length(Rchar)
+    if regexp(Rchar(i), "zeros")
+        l = char(Rchar(i));
+    elseif regexp(Gchar, "eye")
+        l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
+    elseif regexp(Rchar(i), "eye")
+        l = [char(Gchar) '*(' Ychar '-' Y0char ')'];
+    elseif regexp(Gchar, "eye") & regexp(Rchar(i), "eye")
+        l = [Ychar '-' Y0char];
+    else
+        l = [char(Gchar) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
+    end
+    GYR = [GYR string(l)];
+end
+
+% 拡大LMI
+LMIstr = lmistr(QLXNYR,LXN,GYR,"-"+Gchar,XNY_);
+
+
+
+
 %% デバッグ用出力, 一般化BMIの情報
 %%%% heなし
 % Q0= Qeval; % 線形項
@@ -701,11 +896,28 @@ LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0
 % R = Reval; % 双線形項の定数行列(右)
 
 gBMI.expression = 'Q + He( L * X * N * Y * R )';
-gBMI.sdpvar = {Xstr,Ystr};
-gBMI.Q = Qeval;
-gBMI.L = Leval;
-gBMI.N = Neval;
-gBMI.R = Reval;
+
+% sdpvar string
+gBMI.sdpvar.expr = 'Q + He( L * X * N * Y * R )';
+gBMI.sdpvar.msg = 'sdpvarの対応する文字列';
+gBMI.sdpvar.X = [Xstr '-' X0str];
+gBMI.sdpvar.Y = [Ystr '-' Y0str];
+
+% yalmip data
+gBMI.data.expr = 'Q + He( L * X * N * Y * R )';
+gBMI.data.msg = '各行列の数値データ';
+gBMI.data.Q = Qeval;
+gBMI.data.L = Leval;
+gBMI.data.N = Neval;
+gBMI.data.R = Reval;
+
+% string
+gBMI.str.expr = 'Q + He( L * X * N * Y * R )';
+gBMI.str.msg = '各行列の文字列';
+gBMI.str.Q = Qchar;
+gBMI.str.L = Lchar;
+gBMI.str.N = Nchar;
+gBMI.str.R = Rchar;
 
 
 %% 関数の出力
