@@ -78,6 +78,8 @@ end
 %   term = regexp(S,TERM,'match');
 regdeclare();
 
+% ,を空文字に変換
+S = char(regexprep(S,'(?<!\(\w+),',' '));
 
 % 空文字を削減
 S = char(regexprep(S,'(\s+)',' '));
@@ -120,7 +122,7 @@ S = regexprep(S,"\'(\'\')*","\'");
 % 偶数個:0コ に変換
 S = regexprep(S,"(\'\')+","");
 %
-% S
+S
 
 
 %% 字句解析
@@ -544,7 +546,7 @@ for col=1:size(orgmatrix,1)
 end
 
 % デバッグ用:
-% Q
+Q
 % L,N,R
 
 
