@@ -342,11 +342,14 @@ disp(newline)
 disp("###*** パターン ***###")
 disp("# デフォルト")
 
+X0=sdpvar(n,n);
+Y0=sdpvar(m2,p2, 'full');
+
 Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
         "(B1+B2*Y*D21)'*X'               -eye(p1)           (D11+D12*Y*D21)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1)]";
 
-LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+% LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
 [LMIauto, LMIstr] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
 
 %% パターンテストの結果
