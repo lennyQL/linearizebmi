@@ -79,7 +79,9 @@ end
 regdeclare();
 
 % ,を空文字に変換
-S = char(regexprep(S,'(?<!\(\w+),',' '));
+global FUNC_OR_VAR
+% S = char(regexprep(S,'(?<!\(\w+),',' '));
+S = char(regexprep(S,"(?<!\(("+FUNC_OR_VAR+"(,*))+),",' '));
 
 % 空文字を削減
 S = char(regexprep(S,'(\s+)',' '));
@@ -546,7 +548,7 @@ for col=1:size(orgmatrix,1)
 end
 
 % デバッグ用:
-Q
+% Q
 % L,N,R
 
 

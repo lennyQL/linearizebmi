@@ -23,7 +23,7 @@ k0=sdpvar(nu,ny);
 %p0=rand(size(p));
 %k0=rand(size(k));
 
-[LMIauto,BMIauto]=linearizebmi(Fstr,{'p','k'},{'p0','k0'}) % 修正
+[LMIauto,Lstr]=linearizebmi(Fstr,{'p','k'},{'p0','k0'}) % 修正
 LMI = [LMIauto <= 0] % 追加
 
 % linearizebmi
