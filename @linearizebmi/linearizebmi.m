@@ -838,10 +838,14 @@ QLXNYR = [];
 for i=1:size(HEQchar,1)
     list = [];
     for j=1:size(HEQchar,2)
+        heq = HEQchar(i,j);
+        heq = regexprep(heq,Xstr,string(['(' Xchar '-' X0char ')']));
+        heq = regexprep(heq,Ystr,string(['(' Ychar '-' Y0char ')']));
+        
         if regexp(L_XNY_R(i,j), "zeros")
-            l = char(HEQchar(i,j));
+            l = char(heq);
         else
-            l = [char(HEQchar(i,j)) '+' char(L_XNY_R(i,j))];
+            l = [char(heq) '+' char(L_XNY_R(i,j))];
         end
         list = [list string(l)];
     end
