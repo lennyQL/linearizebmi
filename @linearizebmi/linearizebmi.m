@@ -42,21 +42,38 @@ if isa(S,'string')
 end
 % str2sym(S)
 
-% 関数引数の取得
-Xstr =vlist{1};
-Ystr =vlist{2};
-X0str=v0list{1};
-Y0str=v0list{2};
+% 関数引数の取得(char)
+Xstr =char(vlist{1});
+Ystr =char(vlist{2});
+X0str=char(v0list{1});
+Y0str=char(v0list{2});
+
+% 決定変数の取得
+X = evalin('base', Xstr);
+Y = evalin('base', Ystr);
+% 暫定解の取得
+X0 = evalin('base', X0str);
+Y0 = evalin('base', Y0str);
+
+% 決定変数と暫定解のサイズチェック
+if ~isequal(size(X),size(X0))
+    error('size of %s and %s must be equal',Xstr,X0str);
+end
+if ~isequal(size(Y),size(Y0))
+    error('size of %s and %s must be equal',Ystr,Y0str);
+end
 
 % Gの取得
 if nargin<4
-    Gchar = [func2str(@eye) '(' num2str(size(evalin('base',Ystr),2)) ')'];
-    G = eye(size(evalin('base',Ystr),1));
+    % デフォルト：単位行列
+    Gchar = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
+    G = eye(size(Y,1));
 elseif isa(G,'string') || isa(G,'char') 
+    % G のclassチェック
     Gchar = string(G);
     G = evalin('base',G);
 else
-    error('variabe G must be string')
+    error('varargin{4} must be "char" class')
 end
 
 
@@ -124,7 +141,7 @@ S = regexprep(S,"\'(\'\')*","\'");
 % 偶数個:0コ に変換
 S = regexprep(S,"(\'\')+","");
 %
-S
+% S
 
 
 %% 字句解析
@@ -559,14 +576,6 @@ end
 %   evalin('base','eye(p1)'): workspaceの変数の値を使って関数eye(p1)を実行する
 
 
-% 決定変数の取得
-X = evalin('base', Xstr);
-Y = evalin('base', Ystr);
-% 暫定解の取得
-X0 = evalin('base', X0str);
-Y0 = evalin('base', Y0str);
-
-
 % ブロック行列のサイズの計算
 % 制約行列の対角ブロックから割り出す
 colsize = []; % 各ブロックの行サイズ
@@ -730,7 +739,7 @@ for i=1:length(L)
     if var == "1eye"
         var = [func2str(@eye) '(' num2str(size(X,1)) ')'];
     elseif var == "0zero"
-        var = [func2str(@zeros) '(' num2str(rowsize(i)) ',' num2str(size(Leval,2)) ')'];
+        var = [func2str(@zeros) '(' num2str(colsize(i)) ',' num2str(size(Leval,2)) ')'];
     end
     Lchar = [Lchar; string(var)];
 end
