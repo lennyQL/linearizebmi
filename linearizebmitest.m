@@ -330,8 +330,36 @@ disp("###*** パターン ***###")
 disp("# 構文errorテスト")
 
 try 
+    X0=sdpvar(n,n);
+    Y0=sdpvar(m2,p2, 'full');
     Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X';";
     [LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+    disp('correct')
+catch ME
+    disp([ME.identifier ME.message]);
+end
+
+try 
+    X0=sdpvar(n,p2);
+    Y0=sdpvar(m2,p2, 'full');
+    LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+    disp('correct')
+catch ME
+    disp(ME.message);
+end
+try 
+    X0=sdpvar(n,n);
+    Y0=sdpvar(n,n, 'full');
+    LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+    disp('correct')
+catch ME
+    disp(ME.message);
+end
+
+try 
+    X0=sdpvar(n,n);
+    Y0=sdpvar(m2,p2, 'full');
+    LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},G);
     disp('correct')
 catch ME
     disp([ME.identifier ME.message]);
