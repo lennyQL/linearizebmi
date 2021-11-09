@@ -52,8 +52,15 @@ Y0str=char(v0list{2});
 X = evalin('base', Xstr);
 Y = evalin('base', Ystr);
 % 暫定解の取得
-X0 = evalin('base', X0str);
-Y0 = evalin('base', Y0str);
+try
+    % 呼び出し関数内の値を入手
+    X0 = evalin('caller', X0str);
+    Y0 = evalin('caller', Y0str);
+catch
+    % 実行スクリプト内の値を入手
+    X0 = evalin('base', X0str);
+    Y0 = evalin('base', Y0str);
+end
 
 % 決定変数と暫定解のサイズチェック
 if ~isequal(size(X),size(X0))
