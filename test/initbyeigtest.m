@@ -7,6 +7,8 @@ opts.verbose=0;
 
 %%% 制御対象の係数行列，次元をインポート
 [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1');
+% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE2');
+% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE3');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN10');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3');
 
@@ -32,6 +34,9 @@ opts.verbose=0;
 % 可制御性チェック
 Co = ctrb(a,b2)              % フルランクか
 unco = length(a) - rank(Co)  % 非可制御状態数
+
+% 安定性チェック（極）
+St = eig(a)
 
 
 % 決定変数の定義
@@ -78,6 +83,7 @@ k0init = zeros(size(ka));
 
 lcmax=200;
 ggall=[];
+maxeigall =[]; 
 
 %%% 本来は極がすべて負になった時点で停止してよい
 % gg = 0;
@@ -102,13 +108,15 @@ for lc=1:lcmax
   fbeig = real(eig(fbsys))
 %   max(fbeig)
 %   min(fbeig)
-  gg=max(fbeig);
+  maxeig=max(fbeig);
+  maxeigall=[maxeigall,maxeig];
 
-%   gg=double(g);
+  gg=double(g);
   ggall=[ggall,gg];
   
   if ~isfield(opts,'showstep') || opts.showstep
-      fprintf('Loop#%03d: %9.4f\n',lc,gg);
+      fprintf('Loop#%03d: %9.4f  %9.4f\n',lc,gg,maxeig);
+%       fprintf('Loop#%03d: %9.4f\n',lc,gg)
 %       fprintf('Loop#%03d: \n',lc);
 %       disp(gg);
   end
@@ -124,11 +132,13 @@ k0
 
 lc
 
+allplot = [ggall; maxeigall]';
+
 % 達成値の更新過程の表示
+figure;
+plot(allplot);
 % figure;
-% plot(ggall);
-% figure;
-% semilogy(ggall);
+% semilogy(allplot);
 
 %%
 % オプション:
@@ -165,4 +175,22 @@ figure;
 plot(output.ggall);
 figure;
 semilogy(output.ggall);
+
+
+%% symsで式変換テスト
+
+syms a b2 c2 p k g I
+
+b = [b2 1]
+c = [c2;1]
+ka = [k 0; 0 -g]
+
+f = p*(a+b*ka*c)
+simplify(f)
+
+
+
+
+
+
 
