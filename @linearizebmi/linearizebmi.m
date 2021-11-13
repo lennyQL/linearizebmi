@@ -43,14 +43,29 @@ end
 % str2sym(S)
 
 % 関数引数の取得(char)
+if length(vlist) ~= length(v0list)
+    error('The argument 2 and 3 (as list) must be the same lengths')
+end
+
 Xstr =char(vlist{1});
 Ystr =char(vlist{2});
 X0str=char(v0list{1});
 Y0str=char(v0list{2});
 
+Zstr = '';
+if length(vlist) == 3
+    % 分割行列も決定変数のとき
+    Zstr =char(vlist{3});
+    Z0str=char(v0list{3});
+end
+% Zの存在チェックflag
+isZ = ~isempty(Zstr);
+
+
 % 決定変数の取得
 X = evalin('base', Xstr);
 Y = evalin('base', Ystr);
+    
 % 暫定解の取得
 try
     % 呼び出し関数内の値を入手
@@ -62,12 +77,26 @@ catch
     Y0 = evalin('base', Y0str);
 end
 
+% Zも同様に決定変数と暫定解を取得
+if isZ
+    Z = evalin('base', Zstr);
+    try
+        Z0 = evalin('caller', Z0str);
+    catch
+        Z0 = evalin('base', Z0str);
+    end
+end
+
+
 % 決定変数と暫定解のサイズチェック
 if ~isequal(size(X),size(X0))
-    error('size of %s and %s must be equal',Xstr,X0str);
+    error('size of %s and %s must be the same ',Xstr,X0str);
 end
 if ~isequal(size(Y),size(Y0))
-    error('size of %s and %s must be equal',Ystr,Y0str);
+    error('size of %s and %s must be the same',Ystr,Y0str);
+end
+if isZ && ~isequal(size(Z),size(Z0))
+    error('size of %s and %s must be the same',Zstr,Z0str);
 end
 
 % Gの取得
@@ -726,12 +755,41 @@ BMIeval = Qeval + Bieval + Bieval';
 %          G*(Y-Y0)*Reval,...
 %          -G];
 % heあり
-LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-        (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...
-         Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...
-        (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',...
-         -(G+G')];
 
+if isZ
+% 分割行列も決定変数の場合(Zがある)
+% Z = hat(Z)+Delta(Z)の場合(ROCCOND'18)
+LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+    (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+     Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0',...   % (1,2)
+    (G*(Y-Y0)*Reval)';...                        % (1,3)
+    (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0')',... % (2,1)
+     -(Z+Z'),...                                 % (2,2)
+     Z-Z0;...                                    % (2,3)
+     G*(Y-Y0)*Reval,...                          % (3,1)
+    (Z-Z0)',...                                  % (3,2)
+     -(G+G')];                                   % (3,3)
+ 
+% Z is just Zの場合(MSCS'19)
+% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+%      Leval*(X-X0)*Neval,...   % (1,2)
+%     (G*(Y-Y0)*Reval)';...     % (1,3)
+%     (Leval*(X-X0)*Neval)',... % (2,1)
+%      -(Z+Z'),...              % (2,2)
+%      Z;...                    % (2,3)
+%      G*(Y-Y0)*Reval,...       % (3,1)
+%      Z',...                   % (3,2)
+%      -(G+G')];                % (3,3)
+
+else
+% 分割行列が定数行列の場合(Zなし)
+LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+        (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...% (1,1)
+         Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...   % (1,2)
+        (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',... % (2,1)
+         -(G+G')];                                  % (2,2)
+end
      
 %% デバッグ用出力，Q,L,N,R,Gのstring
 % string配列で表現
@@ -926,6 +984,9 @@ gBMI.sdpvar.expr = 'Q + He( L * X * N * Y * R )';
 gBMI.sdpvar.msg = 'sdpvarの対応する文字列';
 gBMI.sdpvar.X = [Xstr '-' X0str];
 gBMI.sdpvar.Y = [Ystr '-' Y0str];
+if isZ
+    gBMI.sdpvar.Z = [Zstr '-' Z0str];
+end
 
 % yalmip data
 gBMI.data.expr = 'Q + He( L * X * N * Y * R )';

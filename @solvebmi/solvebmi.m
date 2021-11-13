@@ -29,6 +29,20 @@ X0dummy = sdpvar(sizeX(1),sizeX(2));
 Y0dummy = sdpvar(sizeY(1),sizeY(2));
 
 
+% get Z if exist
+Zstr = '';
+if length(vlist) == 3
+    Zstr =char(vlist{3});
+    Z0str=char(v0list{3});
+    Z = evalin('base', Zstr);
+    Z0 = evalin('base', Z0str);
+    sizeZ = size(Z);
+    Z0dummy = sdpvar(sizeZ(1),sizeZ(2));
+end
+% checker existence of Z
+isZ = ~isempty(Zstr);
+
+
 
 % linearize bmi
 % if nargin == 4
@@ -38,8 +52,15 @@ Y0dummy = sdpvar(sizeY(1),sizeY(2));
 %     % no G as input
 %     LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
 % end
-LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
-LMI = [LMIauto<=0];
+if isZ
+    LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy','Z0dummy'});
+else
+    LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
+end
+% LMI = [LMIauto<=0];
+eps = 1e-6;
+LMI = [LMIauto<=-eps*eye(size(LMIauto))];
+% LMI = [LMIauto<=eps*eye(size(LMIauto))];
 
 
 
@@ -48,14 +69,24 @@ lcmax=opts.lcmax;	% roop step num
 ggall=[];
 
 for lc=1:lcmax
+  % replace dummy to new optimized val
   extLMI=LMI;
   extLMI=replace(extLMI,X0dummy,X0);
   extLMI=replace(extLMI,Y0dummy,Y0);
-
+  if isZ
+    extLMI=replace(extLMI,Z0dummy,Z0);
+  end
+  
+  % optimize by dilated LMI constraits as sufficient conditions of BMI
   optimize(extLMI,opts.g,opts);
 
+  % update determined val
   X0=double(X);
   Y0=double(Y);
+  if isZ
+      Z0=double(Z);
+  end
+  
 
   % show each step optimized value
   gg=double(opts.g);
@@ -71,6 +102,9 @@ end
 outopt.ggall = ggall;
 outopt.X = X0;
 outopt.Y = Y0;
+if isZ
+  outopt.Z = Z0;
+end
 
 
 
