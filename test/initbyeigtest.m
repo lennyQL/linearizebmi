@@ -6,7 +6,7 @@ opts.solver='sedumi';	% 使用する SDP solver
 opts.verbose=0;
 
 %%% 制御対象の係数行列，次元をインポート
-% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); % g減るのに極増 
+[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); % g減るのに極増 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE2'); % 最初から極負
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE3'); % 大,遅,HE4と似てる?
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE4'); % lc40でギリギリ極負
@@ -14,7 +14,7 @@ opts.verbose=0;
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN9'); % ランク欠落?
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN17'); % size小,g振動
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3'); % 最初から極負
-[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC7'); % lc:4で極負
+% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC7'); % lc:4で極負
 %%% 初期解を変えたら一応解決
 
 % a=[-0.0366,  0.0271,  0.0188, -0.4555;...
