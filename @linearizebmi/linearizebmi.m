@@ -758,19 +758,30 @@ BMIeval = Qeval + Bieval + Bieval';
 
 if isZ
 % 分割行列も決定変数の場合(Zがある)
-% Z = hat(Z)+Delta(Z)の場合(ROCCOND'18)
-LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-    (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-     Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0',...   % (1,2)
-    (G*(Y-Y0)*Reval)';...                        % (1,3)
-    (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0')',... % (2,1)
-     -(Z+Z'),...                                 % (2,2)
-     Z-Z0;...                                    % (2,3)
-     G*(Y-Y0)*Reval,...                          % (3,1)
-    (Z-Z0)',...                                  % (3,2)
-     -(G+G')];                                   % (3,3)
+%%% Z = hat(Z)+Delta(Z)の場合(ROCCOND'18)
+% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+%      Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0',...   % (1,2)
+%     (G*(Y-Y0)*Reval)';...                        % (1,3)
+%     (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0')',... % (2,1)
+%      -(Z+Z'),...                                 % (2,2)
+%      Z-Z0;...                                    % (2,3)
+%      G*(Y-Y0)*Reval,...                          % (3,1)
+%     (Z-Z0)',...                                  % (3,2)
+%      -(G+G')];                                   % (3,3)
+
+% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+%      Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0',...   % (1,2)
+%     (Z0*(Y-Y0)*Reval)';...                        % (1,3)
+%     (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0')',... % (2,1)
+%      -(Z0+Z0'),...                                 % (2,2)
+%      (Z-Z0-Z0)-Z0';...                                    % (2,3)
+%      Z0*(Y-Y0)*Reval,...                          % (3,1)
+%     ((Z-Z0-Z0)-Z0')',...                                  % (3,2)
+%      -(Z0+Z0')];                                   % (3,3)
  
-% Z is just Zの場合(MSCS'19)
+%%% Z is just Zの場合(MSCS'19)
 % LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
 %     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
 %      Leval*(X-X0)*Neval,...   % (1,2)
@@ -781,6 +792,28 @@ LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0
 %      G*(Y-Y0)*Reval,...       % (3,1)
 %      Z',...                   % (3,2)
 %      -(G+G')];                % (3,3)
+
+% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+%      Leval*(X-X0)*Neval,...   % (1,2)
+%     (G*(Y-Y0)*Reval)';...     % (1,3)
+%     (Leval*(X-X0)*Neval)',... % (2,1)
+%      -((Z-Z0)+(Z-Z0)'),...              % (2,2)
+%      (Z-Z0);...                    % (2,3)
+%      G*(Y-Y0)*Reval,...       % (3,1)
+%      (Z-Z0)',...                   % (3,2)
+%      -(G+G')];                % (3,3)
+ 
+LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+    (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+     Leval*(X-X0)*Neval,...   % (1,2)
+    (Z0*(Y-Y0)*Reval)';...     % (1,3)
+    (Leval*(X-X0)*Neval)',... % (2,1)
+     -(Z+Z'),...              % (2,2)
+     Z;...                    % (2,3)
+     Z0*(Y-Y0)*Reval,...       % (3,1)
+     Z',...                   % (3,2)
+     -(Z0+Z0')];                % (3,3)
 
 else
 % 分割行列が定数行列の場合(Zなし)

@@ -6,7 +6,7 @@ function [gg, outopt] = solvebmi(S, vlist, v0list, opts)
 %       - because 'G' can ignore as input
 
 
-% get input value
+%% get input value
 % input as char
 Xstr =char(vlist{1});
 Ystr =char(vlist{2});
@@ -44,7 +44,7 @@ isZ = ~isempty(Zstr);
 
 
 
-% linearize bmi
+%% linearize bmi
 % if nargin == 4
 %     % using G
 %     LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'}, G);
@@ -63,8 +63,16 @@ LMI = [LMIauto<=-eps*eye(size(LMIauto))];
 % LMI = [LMIauto<=eps*eye(size(LMIauto))];
 
 
+%% search init value by D-stability (pole assignment)
+% get A,B2,C2
+% decide init val X,Y,Z
+% linearizebmi
+% run overbounding method, search negative pole
+% => there is X0,Y0,Z0
 
-%%% run: overbounding approximation method
+
+
+%% run: overbounding approximation method
 lcmax=opts.lcmax;	% roop step num
 ggall=[];
 
@@ -99,6 +107,7 @@ for lc=1:lcmax
 end
 
 
+%% output as options
 outopt.ggall = ggall;
 outopt.X = X0;
 outopt.Y = Y0;
