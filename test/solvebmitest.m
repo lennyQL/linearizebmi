@@ -5,11 +5,11 @@ opts.verbose=0;
 
 %%% 問題の定義
 % 制御対象データの定義
-%  S. N. Singh and A. A. R. Coelho,
-%  "Nonlinear control of mismatched uncertain linear systems
+%  S. N. Singh and A. A. R. Coelho, "Nonlinear control of mismatched
+%  uncertain linear systems
 %   and application to control of aircraft",
-%  Journal of Dynamic Systems, Measurement and Control, 106,
-%  pp.203-210, 1984
+%  Journal of Dynamic Systems, Measurement and Control, 106, pp.203-210,
+%  1984
 a=[-0.0366,  0.0271,  0.0188, -0.4555;...
     0.0482, -1.01,    0.0024, -4.0208;...
     0.1002,  0.3681, -0.7070,  1.42;...
