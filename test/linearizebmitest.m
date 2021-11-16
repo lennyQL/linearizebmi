@@ -328,6 +328,9 @@ disp(newline)
 disp("<<<======***** 極配置問題 *****======>>>")
 
 
+X=sdpvar(n,n);
+Y=sdpvar(m2,p2, 'full');
+
 % 手動計算，真値
 BMImanual = X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X';
 %
@@ -348,9 +351,11 @@ disp("# 制約がブロック行列で表されない")
 Fstr = "-X*(-A-B2*Y*C2)+(A+(-B2)*(-Y)*C2)'*X'";
 % Fstr = "eye(n)*X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'*eye(n,n)+(zeros(n)-zeros(n))*(zeros(n)+zeros(n))";
 
+
 tStart = tic;
 [LMIauto, LMIstr,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
+
 
 %
 LMIstr
@@ -367,6 +372,9 @@ disp(newline)
 disp("###*** パターン ***###")
 disp("# 構文errorテスト")
 
+X=sdpvar(n,n);
+Y=sdpvar(m2,p2, 'full');
+
 try 
     X0=sdpvar(n,n);
     Y0=sdpvar(m2,p2, 'full');
@@ -377,6 +385,7 @@ catch ME
     disp([ME.identifier ME.message]);
 end
 
+Fstr = "X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'"; 
 try 
     X0=sdpvar(n,p2);
     Y0=sdpvar(m2,p2, 'full');
@@ -398,6 +407,25 @@ try
     X0=sdpvar(n,n);
     Y0=sdpvar(m2,p2, 'full');
     LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},G);
+    disp('correct')
+catch ME
+    disp([ME.identifier ME.message]);
+end
+
+try 
+    X=eye(n);
+    Y=sdpvar(m2,p2, 'full');
+    LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+    disp('correct')
+catch ME
+    disp([ME.identifier ME.message]);
+end
+
+try 
+    X=sdpvar(n,n);
+    Y=sdpvar(m2,p2, 'full');
+    Z=sdpvar(m2,p2);
+    linearizebmi(Fstr,{'X','Z'},{'X0','Y0'});
     disp('correct')
 catch ME
     disp([ME.identifier ME.message]);

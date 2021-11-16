@@ -74,7 +74,7 @@ Feig = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
 
 
 % [LMIauto,LMIstr] = linearizebmi(Feig,{'p','k'},{'p0','k0'});        % Zなし
-[LMIauto,LMIstr] = linearizebmi(Feig,{'p','k','z'},{'p0','k0','z0'}); % Zあり
+[LMIauto,LMIstr] = linearizebmi(Feig,{'p','k','z'},{'p0','k0','z0'}) % Zあり
 
 
 % 許容範囲

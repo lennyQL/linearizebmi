@@ -47,10 +47,15 @@ if length(vlist) ~= length(v0list)
     error('The argument 2 and 3 (as list) must be the same lengths')
 end
 
-Xstr =char(vlist{1});
-Ystr =char(vlist{2});
-X0str=char(v0list{1});
-Y0str=char(v0list{2});
+try
+    Xstr =char(vlist{1});
+    Ystr =char(vlist{2});
+    X0str=char(v0list{1});
+    Y0str=char(v0list{2});
+catch 
+    error('varargin{2}, varargin{3} must be the char list');
+end
+
 
 Zstr = '';
 if length(vlist) == 3
@@ -63,8 +68,23 @@ isZ = ~isempty(Zstr);
 
 
 % 決定変数の取得
-X = evalin('base', Xstr);
-Y = evalin('base', Ystr);
+try
+    % 呼び出し関数内の値を入手
+    X = evalin('caller', Xstr);
+    Y = evalin('caller', Ystr);
+catch
+    % 実行スクリプト内の値を入手
+    X = evalin('base', Xstr);
+    Y = evalin('base', Ystr);
+end
+
+% X,Yが決定変数(sdpvar)かどうかチェック
+if ~isa(X,'sdpvar')
+    error("'%s' must be the 'sdpvar' class",Xstr);
+elseif ~isa(Y,'sdpvar')
+    error("'%s' must be the 'sdpvar' class",Ystr);
+end
+
     
 % 暫定解の取得
 try
@@ -79,10 +99,11 @@ end
 
 % Zも同様に決定変数と暫定解を取得
 if isZ
-    Z = evalin('base', Zstr);
     try
+        Z = evalin('caller', Zstr);
         Z0 = evalin('caller', Z0str);
     catch
+        Z = evalin('base', Zstr);
         Z0 = evalin('base', Z0str);
     end
 end
@@ -90,13 +111,13 @@ end
 
 % 決定変数と暫定解のサイズチェック
 if ~isequal(size(X),size(X0))
-    error('size of %s and %s must be the same ',Xstr,X0str);
+    error("size of '%s' and '%s' must be the same",Xstr,X0str);
 end
 if ~isequal(size(Y),size(Y0))
-    error('size of %s and %s must be the same',Ystr,Y0str);
+    error("size of '%s' and '%s' must be the same",Ystr,Y0str);
 end
 if isZ && ~isequal(size(Z),size(Z0))
-    error('size of %s and %s must be the same',Zstr,Z0str);
+    error("size of '%s' and '%s' must be the same",Zstr,Z0str);
 end
 
 % Gの取得
@@ -113,13 +134,22 @@ else
 end
 
 
+
 %% 入力の構文エラーチェック
 try
     % bmiのstrのままevalinで実行することで
     % yalmip本体のエラー処理に任せる
-    textchecker = evalin('base',S);
+    testBMI = evalin('base',S);
 catch ME
     rethrow(ME)
+end
+
+
+% X,Yが記述制約のmember(sdpvar)かどうか調べる
+if ~is(replace(testBMI,X,eye(size(X))),'linear')
+    error("'%s' is not a member in this constraint.",Xstr);
+elseif ~is(replace(testBMI,Y,eye(size(Y))),'linear')
+    error("'%s' is not a member in this constraint.",Ystr);
 end
 
 %% 字句解析の前処理(pre-process)
@@ -739,6 +769,7 @@ for i=1:size(R,1)
     Reval = cat(2,Reval,reval);
 end
 % Reval
+
 
 
 % 双線形項の計算, LXNYR
