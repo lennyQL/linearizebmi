@@ -216,10 +216,11 @@ Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
         "c1+d12*k*c2,                   d11+d12*k*d21,  -g*eye(nz)]";
 
 %%% 提案した solvebmi() で 逐次 LMI 化法を実行
-[gg,output] = solvebmi(Fstr,{'p','k'},{'p0','k0'},opts);
+% [gg,output] = solvebmi(Fstr,{'p','k'},g,opts);
 
 %%% 分割行列も決定変数の場合
-[gg2,output2] = solvebmi(Fstr,{'p','k','z'},{'p0','k0','z0'},opts);
+opts.dilate = 1
+[gg2,output2] = solvebmi(Fstr,{'p','k'},g,opts);
 
 
 gg

@@ -145,10 +145,27 @@ catch ME
 end
 
 
+
+%%% 極配置でYのエラーチェックが通らない
+%%% 構造を持ったsdpvarのreplaceがうまくいかない
+% testBMI
+% Y
+% Y0
+% zeros(size(Y))
+% replace(testBMI,X,X0)
+% replace(testBMI,Y,Y0)
+% isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI)))
+% is(replace(testBMI,X,zeros(size(X))),'linear')
+
 % X,Yが記述制約のmember(sdpvar)かどうか調べる
-if ~is(replace(testBMI,X,eye(size(X))),'linear')
+if isequal(replace(testBMI,X,zeros(size(X))),zeros(size(testBMI))) ||...
+   is(replace(testBMI,X,zeros(size(X))),'linear') 
+else
     error("'%s' is not a member in this constraint.",Xstr);
-elseif ~is(replace(testBMI,Y,eye(size(Y))),'linear')
+end
+if isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI))) ||...
+   is(replace(testBMI,Y,zeros(size(Y))),'linear') 
+else
     error("'%s' is not a member in this constraint.",Ystr);
 end
 
@@ -789,61 +806,15 @@ BMIeval = Qeval + Bieval + Bieval';
 
 if isZ
 % 分割行列も決定変数の場合(Zがある)
-%%% Z = hat(Z)+Delta(Z)の場合(ROCCOND'18)
-% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-%      Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0',...   % (1,2)
-%     (G*(Y-Y0)*Reval)';...                        % (1,3)
-%     (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0')',... % (2,1)
-%      -(Z+Z'),...                                 % (2,2)
-%      Z-Z0;...                                    % (2,3)
-%      G*(Y-Y0)*Reval,...                          % (3,1)
-%     (Z-Z0)',...                                  % (3,2)
-%      -(G+G')];                                   % (3,3)
-
-% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-%      Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0',...   % (1,2)
-%     (Z0*(Y-Y0)*Reval)';...                        % (1,3)
-%     (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*Z0')',... % (2,1)
-%      -(Z0+Z0'),...                                 % (2,2)
-%      (Z-Z0-Z0)-Z0';...                                    % (2,3)
-%      Z0*(Y-Y0)*Reval,...                          % (3,1)
-%     ((Z-Z0-Z0)-Z0')',...                                  % (3,2)
-%      -(Z0+Z0')];                                   % (3,3)
- 
-%%% Z is just Zの場合(MSCS'19)
-% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-%      Leval*(X-X0)*Neval,...   % (1,2)
-%     (G*(Y-Y0)*Reval)';...     % (1,3)
-%     (Leval*(X-X0)*Neval)',... % (2,1)
-%      -(Z+Z'),...              % (2,2)
-%      Z;...                    % (2,3)
-%      G*(Y-Y0)*Reval,...       % (3,1)
-%      Z',...                   % (3,2)
-%      -(G+G')];                % (3,3)
-
-% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-%      Leval*(X-X0)*Neval,...   % (1,2)
-%     (G*(Y-Y0)*Reval)';...     % (1,3)
-%     (Leval*(X-X0)*Neval)',... % (2,1)
-%      -((Z-Z0)+(Z-Z0)'),...              % (2,2)
-%      (Z-Z0);...                    % (2,3)
-%      G*(Y-Y0)*Reval,...       % (3,1)
-%      (Z-Z0)',...                   % (3,2)
-%      -(G+G')];                % (3,3)
- 
 LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-     Leval*(X-X0)*Neval,...   % (1,2)
-    (Z0*(Y-Y0)*Reval)';...     % (1,3)
-    (Leval*(X-X0)*Neval)',... % (2,1)
-     -(Z+Z'),...              % (2,2)
-     Z;...                    % (2,3)
-     Z0*(Y-Y0)*Reval,...       % (3,1)
-     Z',...                   % (3,2)
+     Leval*(X-X0)*Neval,...     % (1,2)
+    (Z0*(Y-Y0)*Reval)';...      % (1,3)
+    (Leval*(X-X0)*Neval)',...   % (2,1)
+     -(Z+Z'),...                % (2,2)
+     Z;...                      % (2,3)
+     Z0*(Y-Y0)*Reval,...        % (3,1)
+     Z',...                     % (3,2)
      -(Z0+Z0')];                % (3,3)
 
 else

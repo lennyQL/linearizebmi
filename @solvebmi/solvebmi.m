@@ -1,10 +1,26 @@
-function [gg, outopt] = solvebmi(S, vlist, opts)
-% function [gg, outopt] = solvebmi(S, vlist, v0list, opts)
+function [gg, outopt] = solvebmi(S, vlist, optg, opts)
 %SOLVEBMI solve bmi using overbounding approximation method
 % this is a wrapper for @linearizebmi
+% 
+%  input:
+%     S:      BMI string
+%     vlist:  determinant variable(ex: P,K)
+%     optg:   a solution which you want to optimize
+%     opts:   some options
+%             (ex:
+%                 opts = sdpsetting
+%                 opts.solver = 'sedumi'
+%                 opts.lcmax = 200
+%                 opts.dilate = 1
+%             )
+% 
+%  output:
+%     gg:     optimal solution
+%     outopt: some data about initial solution and optimal solution
+% 
 % !TODO: 
 %   - how to input 'G' and 'opts'
-%       - because 'G' can ignore as input
+%       - because 'G' will be ignored as input
 
 
 %% get input value
@@ -35,6 +51,13 @@ X0dummy = sdpvar(sizeX(1),sizeX(2));
 Y0dummy = sdpvar(sizeY(1),sizeY(2));
 
 
+% if not opts input
+if nargin == 3
+    %%% set SDP solver
+    opts=sdpsettings;
+    opts.solver='sedumi';	% 'sedumi' as default SDP solver
+    opts.verbose=0;
+end
 
 % checker existence of Z
 if isfield(opts,'dilate') && opts.dilate
@@ -52,6 +75,13 @@ Z0dummy = sdpvar(sizeZ(1),sizeZ(2));
 % debug stdout flag
 debug = ~isfield(opts,'showstep') || opts.showstep;
 
+% loop count for option
+if ~isfield(opts,'lcmax')
+    opts.lcmax = 200;
+end
+
+% target value
+g = optg;
 
 %% linearize bmi
 % if nargin == 4
@@ -71,15 +101,15 @@ end
 
 %% search init value by optimize [LMI<t] (t->negative)
 
-% epsilon
+%%% epsilon
 eps = 1e-6;
 upeps = 1e3;
 loweps = 1e-3;
 
-% constraint for search init val
+%%% constraint for search init val
 t = sdpvar;
 LMIinit = [LMIauto<=t*eye(size(LMIauto))]; % minimize t
-LMIinit = replace(LMIinit,opts.g,1e3);          % make g to big number(constant) 
+LMIinit = replace(LMIinit,g,1e3);          % make g to big number(constant) 
 if isZ
   LMIinit = [LMIinit, Z+Z'>=eps];
 %   LMIinit = [LMIinit, Z+Z'>=loweps];
@@ -89,11 +119,10 @@ LMIinit = [LMIinit, X>=eps];
 
 
 
-% init val
+%%% init val
 % X0init = zeros(sizeX);
 X0init = eye(sizeX);
 % X0init = eye(sizeX) * 1e3;
-
 
 Y0init = zeros(sizeY);
 % Y0init = -ones(sizeY);
@@ -150,7 +179,7 @@ end
 
 
 % show if initial solution is positive definite
-eig(X0init)
+% eig(X0init)
 
 
 
@@ -170,7 +199,8 @@ LMI = [LMI, X>=eps];
 X0 = X0init;
 Y0 = Y0init;
 if isZ
-  Z0 = Z0init;
+%   Z0 = Z0init;
+  Z0 = eye(sizeZ);
 end
 
 
@@ -183,6 +213,7 @@ if debug
   disp("start")
 end
 
+gg = 1e3;
 lcmax=opts.lcmax;	% roop step num
 ggall=[];
 
@@ -196,17 +227,28 @@ for lc=1:lcmax
   end
   
   % optimize by dilated LMI constraits as sufficient conditions of BMI
-  optimize(extLMI,opts.g,opts);
+  optimize(extLMI,g,opts);
 
+  
+  %%% debug
+%   if double(g) > gg
+%       gg=double(g);
+%       ggall=[ggall,gg];
+%       break
+%   end
+  
   % update determined val
   X0=double(X);
   Y0=double(Y);
   if isZ
       Z0=double(Z);
   end
+%   eig(X0)
+%   eig(Z0)
+  
   
   % show each step optimized value
-  gg=double(opts.g);
+  gg=double(g);
   ggall=[ggall,gg];
   
   if debug
