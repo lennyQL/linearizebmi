@@ -158,16 +158,16 @@ end
 % is(replace(testBMI,X,zeros(size(X))),'linear')
 
 % X,Yが記述制約のmember(sdpvar)かどうか調べる
-if isequal(replace(testBMI,X,zeros(size(X))),zeros(size(testBMI))) ||...
-   is(replace(testBMI,X,zeros(size(X))),'linear') 
-else
-    error("'%s' is not a member in this constraint.",Xstr);
-end
-if isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI))) ||...
-   is(replace(testBMI,Y,zeros(size(Y))),'linear') 
-else
-    error("'%s' is not a member in this constraint.",Ystr);
-end
+% if isequal(replace(testBMI,X,zeros(size(X))),zeros(size(testBMI))) ||...
+%    is(replace(testBMI,X,zeros(size(X))),'linear') 
+% else
+%     error("'%s' is not a member in this constraint.",Xstr);
+% end
+% if isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI))) ||...
+%    is(replace(testBMI,Y,zeros(size(Y))),'linear') 
+% else
+%     error("'%s' is not a member in this constraint.",Ystr);
+% end
 
 %% 字句解析の前処理(pre-process)
 

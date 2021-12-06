@@ -37,12 +37,20 @@ g=sdpvar(1,1);			% H∞ノルム
 p0=sdpvar(nx,nx,'symmetric');
 k0=sdpvar(nu,ny,'full');
 
+p0=zeros(size(p));
+k0=zeros(size(k));
+
+G =sdpvar(size(k,1));
+G0=eye(size(G));
+
+
 % BMI 最適化問題の定義
 Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
         "(p*(b1+b2*k*d21))',            -g*eye(nw,nw),     (d11+d12*k*d21)';" +...
         "c1+d12*k*c2,                   d11+d12*k*d21,  -g*eye(nz)]";
 
 %%% 提案した linearizebmi() による BMI の十分条件化
+[LMIauto,LMIstr]=linearizebmi(Fstr,{'p','k','G'},{'p0','k0','G0'})
 [LMIauto,LMIstr]=linearizebmi(Fstr,{'p','k'},{'p0','k0'});
 LMI=[LMIauto<=0];
 

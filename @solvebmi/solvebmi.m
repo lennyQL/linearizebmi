@@ -1,4 +1,4 @@
-function [gg, outopt] = solvebmi(S, vlist, optg, opts)
+function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 %SOLVEBMI solve bmi using overbounding approximation method
 % this is a wrapper for @linearizebmi
 % 
@@ -16,7 +16,7 @@ function [gg, outopt] = solvebmi(S, vlist, optg, opts)
 % 
 %  output:
 %     gg:     optimal solution
-%     outopt: some data about initial solution and optimal solution
+%     vars:   some data about initial solution and optimal solution
 % 
 % !TODO: 
 %   - how to input 'G' and 'opts'
@@ -51,34 +51,41 @@ X0dummy = sdpvar(sizeX(1),sizeX(2));
 Y0dummy = sdpvar(sizeY(1),sizeY(2));
 
 
+%%% setup default option if not determind
 % if not opts input
-if nargin == 3
+if nargin == 3 || ~isfield(opts,'yalmip')
     %%% set SDP solver
-    opts=sdpsettings;
-    opts.solver='sedumi';	% 'sedumi' as default SDP solver
-    opts.verbose=0;
+    opt=sdpsettings;
+    opt.solver='sedumi';	% 'sedumi' as default SDP solver
+    opt.verbose=0;
+    opts.yalmip = opt;
 end
 
-% checker existence of Z
-if isfield(opts,'dilate') && opts.dilate
-    isZ = true;
-else
-    isZ = false;
+% select dilation type
+if ~isfield(opts,'dilate')
+    opts.dilate = false;
 end
-    
+
+% debug stdout flag
+if ~isfield(opts,'showstep')
+    opts.showstep = true;
+end
+
+% loop count for option
+if ~isfield(opts,'lcmax')
+    opts.lcmax = 200;
+end
+
+
 % construct or get Z
+isZ = opts.dilate; % checker existence of Z
 Z = sdpvar(sizeY(1),sizeY(1));
 sizeZ = size(Z);
 Z0dummy = sdpvar(sizeZ(1),sizeZ(2));
 
 
 % debug stdout flag
-debug = ~isfield(opts,'showstep') || opts.showstep;
-
-% loop count for option
-if ~isfield(opts,'lcmax')
-    opts.lcmax = 200;
-end
+debug = opts.showstep;
 
 % target value
 g = optg;
@@ -92,9 +99,9 @@ g = optg;
 %     LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
 % end
 if isZ
-    LMIauto = linearizebmi(S, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
+    [LMIauto,~,gLMI] = linearizebmi(S, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
 else
-    LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
+    [LMIauto,~,gLMI] = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
 end
 
 
@@ -106,28 +113,116 @@ eps = 1e-6;
 upeps = 1e3;
 loweps = 1e-3;
 
-%%% constraint for search init val
+
+%%% desison value 't'
+% A dilated LMI constraint is below
+% [Q  XN      [tI O
+%  GY -G]  -   O  O]  <  O
+%
+
+% size of linear term Q in the dilated LMI
+sizeQ = size(gLMI.data.Q);
+sizeLMI = size(LMIauto);
+
+% decide objective function 't'
 t = sdpvar;
-LMIinit = [LMIauto<=t*eye(size(LMIauto))]; % minimize t
-LMIinit = replace(LMIinit,g,1e3);          % make g to big number(constant) 
+tI = t * eye(sizeQ);
+alpha = blkdiag(tI, zeros(sizeLMI-sizeQ));
+
+%%% constraint for search init val
+LMIinit = [LMIauto <= alpha]; % minimize t
+% LMIinit = replace(LMIinit,g,1e3);          % make g to big number(constant) 
 if isZ
-  LMIinit = [LMIinit, Z+Z'>=eps];
+%   LMIinit = [LMIinit, Z+Z'>=eps];
 %   LMIinit = [LMIinit, Z+Z'>=loweps];
 %   LMIinit = [LMIinit, Z+Z'<=upeps];
 end
-LMIinit = [LMIinit, X>=eps];
+% LMIinit = [LMIinit, X>=eps];
+
+%%%%%
+% Test: for H2 control
+if isfield(opts,'constraints')
+    % opts.constraints
+    LMIinit = [LMIinit, opts.constraints];
+end
+%%%%%
 
 
 
-%%% init val
-% X0init = zeros(sizeX);
-X0init = eye(sizeX);
-% X0init = eye(sizeX) * 1e3;
+%%% Init val
+% set init val by assign()
+% if not assign, set default val
+%
+% All of these process is just for
+% finding max eig of LMIauto as alpha(t)
 
-Y0init = zeros(sizeY);
-% Y0init = -ones(sizeY);
+% Save first init val
+X0first = value(X);
+Y0first = value(Y);
+Z0first = value(Z);
+gfirst = value(g);
 
-Z0init = eye(sizeZ);
+% Assign intial values
+assign(X0dummy,value(X))
+assign(Y0dummy,value(Y))
+assign(Z0dummy,eye(sizeZ))
+
+% X0, set default value if not exist assign value
+X0init = value(X0dummy);
+if isnan(X0init)
+%     val = zeros(sizeX);
+    val = eye(sizeX);
+    % val = eye(sizeX) * 1e3;
+    assign(X0dummy,val)
+    assign(X,zeros(sizeX))
+    X0init = value(X0dummy);
+   
+end
+
+% Y0
+Y0init = value(Y0dummy);
+if isnan(Y0init)
+    val = zeros(sizeY);
+    % val = -ones(sizeY);
+    assign(Y0dummy,val)
+    assign(Y,zeros(sizeY))
+    Y0init = value(Y0dummy);
+end
+
+% Z0
+Z0init = value(Z0dummy);
+assign(Z,Z0init)
+
+% g
+if isnan(value(g))
+    assign(g,0);
+end
+
+
+
+
+% Assign values to decision values as O
+% assign(X,zeros(sizeX))
+% assign(Y,zeros(sizeY))
+% assign(Z,zeros(sizeZ))
+
+
+% value(g)
+% value(X)
+% value(X0dummy)
+% value(Y)
+% value(Y0dummy)
+% value(Z)
+% value(Z0dummy)
+% value(LMIauto)
+
+% Find max eig in LMIauto
+eiglmi = eig(value(LMIauto));
+maxeig = max(eiglmi)
+% Decide first value 
+% if (>=0)   : search init solution
+% elseif (<0): assign val is init solution
+tt = maxeig;
 
 
 
@@ -139,7 +234,7 @@ if debug
   disp("start")
 end
 
-tt = 1e3;
+ttall=[];   % optimal solutions
 lc = 0;
 while tt >= 0
   lc=lc+1;
@@ -150,14 +245,19 @@ while tt >= 0
   extLMI=replace(extLMI,Z0dummy,Z0init);
   
 
-  optimize(extLMI,t,opts);
+  optimize(extLMI,t,opts.yalmip);
 
   X0init=double(X);
   Y0init=double(Y);
   Z0init=double(Z);
 
-
+%   double(g)
+%   double(opts.decision)
+  
   tt=double(t);
+  ttall=[ttall,tt];
+  
+%   gout=double(g)
   
   % debug output (maybe not necessary)
   if debug
@@ -192,8 +292,17 @@ if isZ
 %   LMI = [LMI, Z+Z'>=loweps];
 %   LMI = [LMI, Z+Z'<=upeps];
 end
-LMI = [LMI, X>=eps];
+% LMI = [LMI, X>=eps];
 
+
+%%%%%
+% Test: for H2 control
+% opts.constraints
+if isfield(opts,'constraints')
+    % opts.constraints
+    LMI = [LMI, opts.constraints];
+end
+%%%%%
 
 % init val from upper proccess
 X0 = X0init;
@@ -215,7 +324,9 @@ end
 
 gg = 1e3;
 lcmax=opts.lcmax;	% roop step num
-ggall=[];
+ggall=[];   % optimal solutions
+tmall=[];   % computational times
+tStart = tic;
 
 for lc=1:lcmax
   % replace dummy to new optimized val
@@ -227,8 +338,8 @@ for lc=1:lcmax
   end
   
   % optimize by dilated LMI constraits as sufficient conditions of BMI
-  optimize(extLMI,g,opts);
-
+  optimize(extLMI,g,opts.yalmip);
+  tEnd = toc(tStart);
   
   %%% debug
 %   if double(g) > gg
@@ -251,6 +362,9 @@ for lc=1:lcmax
   gg=double(g);
   ggall=[ggall,gg];
   
+  % show ech step computational time
+  tmall=[tmall,tEnd];
+  
   if debug
       fprintf('Loop#%03d: %9.4f\n',lc,gg);
   end
@@ -264,21 +378,34 @@ end
 
 
 
+%% Clear assign value as first intial value
 
-%% output as options
-outopt.ggall = ggall;
-outopt.X = X0;
-outopt.Y = Y0;
+assign(X,X0first)
+assign(Y,Y0first)
+assign(Z,Z0first)
+assign(g,gfirst)
+
+
+
+%% Data of solutions as output
+outopts.ggall = ggall; % original objective function
+outopts.ttall = ttall; % objective function for initial
+outopts.tmall = tmall; % computational time
+
+% optimal solution
+vars.(inputname(3)) = gg; % original objective value
+vars.(Xstr) = X0;         % decision matrix X
+vars.(Ystr) = Y0;         % decision matrix Y
 if isZ
-  outopt.Z = Z0;
+  vars.('G') = Z0;       % decision matrix G
 end
 
-outopt.X0 = X0init;
-outopt.Y0 = Y0init;
+% initial solution
+vars.([Xstr '0']) = X0init;
+vars.([Ystr '0']) = Y0init;
 if isZ
-  outopt.Z0 = Z0init;
+  vars.('G0') = Z0init;
 end
-
 
 
 
