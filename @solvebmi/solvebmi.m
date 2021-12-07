@@ -98,11 +98,53 @@ g = optg;
 %     % no G as input
 %     LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
 % end
-if isZ
-    [LMIauto,~,gLMI] = linearizebmi(S, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
+
+% define S size
+% class(S)
+if isequal(class(S),'cell')
+    sizeS = length(S);
+elseif isequal(class(S),'string')
+    sizeS = 1;
 else
-    [LMIauto,~,gLMI] = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
+    error("varargin{1} must be 'cell' or 'string' class");
 end
+% sizeS
+
+% S
+LMIlist = [];        % constraints
+sdpvarnamelist = []; % varnames
+
+for i=1:sizeS
+    Fstr = S{i};
+    
+    if isZ
+        [LMIauto,~,gLMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
+    else
+        [LMIauto,~,gLMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'});
+    end
+    
+    
+    % LMIauto
+    % gLMI.sdpvarname
+    
+    % declare LMI constraints
+    if gLMI.isbmi
+        BMImat = LMIauto;
+        BMIopt = gLMI;
+    else
+        LMIlist = [LMIlist, LMIauto<=0];
+    end
+    
+    % sdpvar names in all constraints
+    sdpvarnamelist = [sdpvarnamelist, gLMI.sdpvarname];
+    
+end
+
+% BMImat
+% LMIlist
+% sdpvarnamelist
+
+sdpvarnamelist = unique(sdpvarnamelist,'stable');
 
 
 
@@ -121,8 +163,8 @@ loweps = 1e-3;
 %
 
 % size of linear term Q in the dilated LMI
-sizeQ = size(gLMI.data.Q);
-sizeLMI = size(LMIauto);
+sizeQ = size(BMIopt.data.Q);
+sizeLMI = size(BMImat);
 
 % decide objective function 't'
 t = sdpvar;
@@ -130,22 +172,18 @@ tI = t * eye(sizeQ);
 alpha = blkdiag(tI, zeros(sizeLMI-sizeQ));
 
 %%% constraint for search init val
-LMIinit = [LMIauto <= alpha]; % minimize t
+LMIinit = [BMImat <= alpha]; % minimize t
 % LMIinit = replace(LMIinit,g,1e3);          % make g to big number(constant) 
 if isZ
-%   LMIinit = [LMIinit, Z+Z'>=eps];
+  LMIinit = [LMIinit, Z+Z'>=eps];
 %   LMIinit = [LMIinit, Z+Z'>=loweps];
 %   LMIinit = [LMIinit, Z+Z'<=upeps];
 end
-% LMIinit = [LMIinit, X>=eps];
 
-%%%%%
-% Test: for H2 control
-if isfield(opts,'constraints')
-    % opts.constraints
-    LMIinit = [LMIinit, opts.constraints];
-end
-%%%%%
+
+% Append other LMI
+LMIinit = [LMIinit, LMIlist];
+
 
 
 
@@ -156,11 +194,23 @@ end
 % All of these process is just for
 % finding max eig of LMIauto as alpha(t)
 
-% Save first init val
-X0first = value(X);
-Y0first = value(Y);
+
+
+% Decide others sdpvar default value
+firstvaluelist = {};
+
+for i=1:length(sdpvarnamelist)
+    name = sdpvarnamelist(i);    % string
+    var = evalin('caller',name); % sdpvar
+    data = value(var);           % value
+    if isnan(data)
+        assign(var,zeros(size(data)))
+    end
+    % Save first init val
+    firstvaluelist(i) = {data};
+end
 Z0first = value(Z);
-gfirst = value(g);
+
 
 % Assign intial values
 assign(X0dummy,value(X))
@@ -174,7 +224,7 @@ if isnan(X0init)
     val = eye(sizeX);
     % val = eye(sizeX) * 1e3;
     assign(X0dummy,val)
-    assign(X,zeros(sizeX))
+%     assign(X,zeros(sizeX))
     X0init = value(X0dummy);
    
 end
@@ -185,7 +235,7 @@ if isnan(Y0init)
     val = zeros(sizeY);
     % val = -ones(sizeY);
     assign(Y0dummy,val)
-    assign(Y,zeros(sizeY))
+%     assign(Y,zeros(sizeY))
     Y0init = value(Y0dummy);
 end
 
@@ -214,10 +264,10 @@ end
 % value(Y0dummy)
 % value(Z)
 % value(Z0dummy)
-% value(LMIauto)
+% value(BMImat)
 
 % Find max eig in LMIauto
-eiglmi = eig(value(LMIauto));
+eiglmi = eig(value(BMImat));
 maxeig = max(eiglmi)
 % Decide first value 
 % if (>=0)   : search init solution
@@ -251,8 +301,6 @@ while tt >= 0
   Y0init=double(Y);
   Z0init=double(Z);
 
-%   double(g)
-%   double(opts.decision)
   
   tt=double(t);
   ttall=[ttall,tt];
@@ -286,23 +334,18 @@ end
 %% run: overbounding approximation method
 
 % constraints
-LMI = [LMIauto<=-eps*eye(size(LMIauto))];
+LMI = [BMImat<=-eps*eye(size(BMImat))];
 if isZ
   LMI = [LMI, Z+Z'>=eps];
 %   LMI = [LMI, Z+Z'>=loweps];
 %   LMI = [LMI, Z+Z'<=upeps];
 end
-% LMI = [LMI, X>=eps];
 
 
-%%%%%
-% Test: for H2 control
-% opts.constraints
-if isfield(opts,'constraints')
-    % opts.constraints
-    LMI = [LMI, opts.constraints];
-end
-%%%%%
+% Append other LMI
+LMI = [LMI, LMIlist];
+
+
 
 % init val from upper proccess
 X0 = X0init;
@@ -378,27 +421,33 @@ end
 
 
 
-%% Clear assign value as first intial value
-
-assign(X,X0first)
-assign(Y,Y0first)
-assign(Z,Z0first)
-assign(g,gfirst)
-
-
 
 %% Data of solutions as output
 outopts.ggall = ggall; % original objective function
 outopts.ttall = ttall; % objective function for initial
 outopts.tmall = tmall; % computational time
 
+% % optimal solution
+% vars.(inputname(3)) = gg; % original objective value
+% vars.(Xstr) = X0;         % decision matrix X
+% vars.(Ystr) = Y0;         % decision matrix Y
+% if isZ
+%   vars.('G') = Z0;       % decision matrix G
+% end
+% 
+
+
+
 % optimal solution
-vars.(inputname(3)) = gg; % original objective value
-vars.(Xstr) = X0;         % decision matrix X
-vars.(Ystr) = Y0;         % decision matrix Y
-if isZ
-  vars.('G') = Z0;       % decision matrix G
+% sdpvarnamelist
+for i=1:length(sdpvarnamelist)
+    name = sdpvarnamelist(i);
+    data = evalin('caller',name);
+    vars.(name) = value(data);
 end
+
+% vars
+
 
 % initial solution
 vars.([Xstr '0']) = X0init;
@@ -408,5 +457,14 @@ if isZ
 end
 
 
+%% Clear assign value as first intial value
+
+for i=1:length(sdpvarnamelist)
+    name = sdpvarnamelist(i);    % string
+    var = evalin('caller',name); % sdpvar
+    assign(var,firstvaluelist{1,i}); % back to first value
+end
+
+assign(Z,Z0first);
 
 

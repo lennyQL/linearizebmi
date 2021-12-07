@@ -34,6 +34,9 @@
 
 
 %% Hinf問題
+disp(newline)
+disp("#####*** Hinf問題 ***#####")
+% disp(newline)
 
 %%% 決定変数の定義
 p=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列
@@ -66,21 +69,20 @@ Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
         "c1+d12*k*c2,                   d11+d12*k*d21,  -g*eye(nz)]";
 
     
-% その他のLMI制約
-constraints = [p >= 0];
-opts.constraints = constraints;
+% すべての制約
+Flist = {Fstr, "-p"};
 
 
 %%% 提案した solvebmi() で 逐次 LMI 化法を実行
 %%%
 % 分割行列Gは定数
 opts.dilate = 0;
-[gg,vars,output] = solvebmi(Fstr,{'p','k'},g,opts);
+[gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
 
 %%%
 % 分割行列Gは決定変数
 opts.dilate = 1;
-[gg2,vars2,output2] = solvebmi(Fstr,{'p','k'},g,opts);
+[gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 
 
 %%% output
@@ -88,20 +90,29 @@ opts.dilate = 1;
 % vars
 % vars.g
 % vars.p
-vars.k
+% vars.k
 % vars.p0
-vars.k0
+% vars.k0
 % output.ttall'
 
 
 % gg2
 % vars2
 % vars2.p
-vars2.k
+% vars2.k
 % vars2.p0
-vars2.k0
+% vars2.k0
 
 % output2.ttall'
+
+gg
+gg2
+
+K1 = vars.k
+K2 = vars2.k
+
+vars
+vars2
 
 
 %%% リアプノフ行列Pの正定値性の確認(固有値すべて正か)
@@ -170,6 +181,9 @@ grid on
 % solvebmiは現在，BMI制約を1つしか受け取れない
 % その他のLMI制約をどう受け取るか
 % 一応応急策として，optsに残りの制約を渡してる
+disp(newline)
+disp("#####*** H2問題 ***#####")
+% disp(newline)
 
 %%% 決定変数の定義
 p=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列
@@ -189,7 +203,7 @@ assign(R,zeros(nz,nz))
 yalmipopts=sdpsettings;
 yalmipopts.solver='sedumi';	% 使用する SDP solver
 yalmipopts.verbose=0;         % 詳細表示
-
+    
 %%% solvebmiのオプション:
 opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
 opts.lcmax = 200;            % 繰り返し実行する回数
@@ -199,44 +213,43 @@ opts.lcmax = 200;            % 繰り返し実行する回数
 
 
 %%% BMI 最適化問題の定義
-Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21);"+...
+Fstr1 = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21);"+...
         "(p*(b1+b2*k*d21))',            -eye(nw,nw)];";
 
     
-% その他のLMI制約
-constraints = [g >= trace(R)];
+% すべての制約
+Fstr2 = "trace(R)-g";
 % 本来の[g*g>=trace(R)]は
 % 非線形なのでsedumiで解けない
 % テストとしてgの2乗部分を外した
 % constraints = [g >= sqrtm(trace(R))];
 
-C = c1+d12*k*c2;
-matR = [R  C;...
-        C' p];
-constraints = [constraints,matR >= 0];
-opts.constraints = constraints;
+Fstr3 = "[-R              -(c1+d12*k*c2);"+...
+        "-(c1+d12*k*c2)'  -p];";
 
-
-opts.decision = R;
+Flist = {Fstr1, Fstr2, Fstr3};
 
 
 %%% 提案した solvebmi() で 逐次 LMI 化法を実行
 %%%
 % 分割行列Gは定数
 opts.dilate = 0;
-[gg,vars,output] = solvebmi(Fstr,{'p','k'},g,opts);
+[gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
 
 %%%
 % 分割行列Gは決定変数
 opts.dilate = 1;
-[gg2,vars2,output2] = solvebmi(Fstr,{'p','k'},g,opts);
+[gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 
 
 gg
 gg2
 
-vars.k
-vars2.k
+K1 = vars.k
+K2 = vars2.k
+
+vars
+vars2
 
 
 %%% 達成値の更新過程の表示
@@ -263,6 +276,9 @@ grid on
 
 
 %% 極配置問題(未完成)
+% disp(newline)
+% disp("#####*** 極配置問題 ***#####")
+% disp(newline)
 
 % % 決定変数の定義
 % p=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列
@@ -318,6 +334,9 @@ grid on
 % figure;
 % semilogy(ggall);
 
+
+
+%% Useful Functions
 
 function [M1,M2] = matchSize(L1,L2)
 % 2つのリストのサイズを合わせる

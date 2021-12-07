@@ -444,7 +444,42 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1)]";
 
 % LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
-[LMIauto, LMIstr] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
+[LMIauto, LMIstr, out] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
+
+%% そもそもLMIの場合
+disp(newline)
+disp("###*** パターン ***###")
+disp("# LMI")
+
+X=sdpvar(n,n);
+Y=sdpvar(m2,p2, 'full');
+X0=rand(size(X));
+Y0=rand(size(Y));
+
+g = sdpvar;
+h = sdpvar;
+g0 = rand(size(g));
+h0 = rand(size(h));
+
+% diag(g)
+% dig = diag(X)
+
+
+% Fstr = "A*X+(A*X)'+A*X+B2*Y*B2'+(B2*Y*B2')'";
+% Fstr = "-X";
+Fstr = "trace(X)*trace(Y)+(trace(X)*trace(Y))'"
+% Fstr = "X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'"
+
+% Fstr = "diag(g)*h+(diag(g)*h)'"
+
+[LMIauto, ~, out] = linearizebmi(Fstr,{'trace(X)','trace(Y)'},{'trace(X0)','trace(Y0)'})
+% [LMIauto, ~, out] = linearizebmi(Fstr,{'diag(g)','h'},{'diag(g0)','h0'})
+% [LMIauto, ~, out] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+
+is(LMIauto,'linear')
+
+out.sdpvarname
+
 
 %% パターンテストの結果
 disp(newline)

@@ -466,6 +466,71 @@ end
 smatrix = cellfun(@rmngsign,smatrix,'UniformOutput',false);
 
 
+%% sdpvarの変数名の取得
+
+% 一時的リスト
+sdpvarnamelist = []; % sdpvarの変数名list
+
+% すべての変数名を調べて，evalinでsdpvarだったら変数名を記録
+for col=1:size(smatrix,1)
+    % 各行ベクトル
+    for row=1:size(smatrix,2)
+        % 各行列要素
+        % disp(col+" "+row)
+        termlist = smatrix{col,row};
+        for i=1:size(termlist,1)
+            % 要素の各項
+            term = termlist{i,1};
+            for j=1:size(term,2)
+                % 項のそれぞれの変数
+                var = term{1,j};
+                % 転置ははずす
+                if regexp(var, "\'")
+                    var = regexprep(var,"\'","");
+                end
+                % classがsdpvarなら変数名を記録
+                try
+                    data = evalin('base',var);
+                    if isequal(class(data),'sdpvar')
+                        %
+                        % use var in function args
+                        if regexp(var, "\(.*\)")
+                            var = regexprep(var, "\w*\(","");
+                            var = regexprep(var, "\)","");
+                        end
+                        sdpvarnamelist = [sdpvarnamelist, var];
+                    end
+                catch
+                    continue
+                end
+            end
+        end
+    end
+end
+
+
+% sdpvarnamelist
+% unique(sdpvarnamelist,'stable')
+
+% オプションとしてsdpvar変数名を出力
+gBMI.sdpvarname = unique(sdpvarnamelist,'stable');
+
+
+%% そもそもLMIならそのまま出力
+
+% testBMI
+gBMI.isbmi = true;
+if is(testBMI,'linear')
+    LMI = testBMI;
+    LMIstr = "";
+    BMI = NaN;
+    gBMI.isbmi = false;
+    % disp("This is LMI")
+    return
+end
+
+
+
 %% 線形項と双線形項の分離
 % 行列
 linearmatrix = smatrix; % 定数項，1次項
@@ -490,10 +555,20 @@ for col=1:size(smatrix,1)
             for j=1:size(term,2)
                 % 項のそれぞれの変数
                 var = term{1,j};
-                if ~isempty(regexp(var, Xstr, 'once')) ||...
-                   ~isempty(regexp(var, Ystr, 'once'))
+%                 if ~isempty(regexp(var, Xstr, 'once')) ||...
+%                    ~isempty(regexp(var, Ystr, 'once'))
+%                     varcount = varcount + 1;
+%                 end
+                % sdpvarかどうか調べる
+                try
+                    data = evalin('base',var);
+                catch
+                    continue
+                end
+                if isequal(class(data),'sdpvar')
                     varcount = varcount + 1;
                 end
+                
                 if varcount >= 2
                     binearlist = updateList(binearlist,term,1);
                     break
@@ -592,9 +667,9 @@ for col=1:size(orgmatrix,1)
             for j=1:size(term,2)
                 % 項のそれぞれの変数
                 var = term{1,j};
-                if regexp(var, Xstr, 'once')
+                if isequal(var, Xstr)
                     xidx = j;
-                elseif regexp(var, Ystr, 'once') 
+                elseif isequal(var, Ystr) 
                     yidx = j;
                 end
             end    
@@ -683,11 +758,13 @@ end
 
 
 % 線形項の計算
-cellQ = cellfun(@calclinear,Q,'UniformOutput',false);
+% cellQ = cellfun(@calclinear,Q,'UniformOutput',false);
+cellQ = calclinear(Q,colsize,rowsize);
 Qeval = cell2mat(cellQ);
 
 % othermatlistの計算
-cellQother = cellfun(@calclinear,othermatlist,'UniformOutput',false);
+% cellQother = cellfun(@calclinear,othermatlist,'UniformOutput',false);
+cellQother = calclinear(othermatlist,colsize,rowsize);
 Qothereval = cell2mat(cellQother);
 % なければ0
 if isempty(Qothereval)
@@ -788,9 +865,17 @@ end
 % Reval
 
 
+% Leval
+% Neval
+% Reval
+% X
+% Y
 
 % 双線形項の計算, LXNYR
 Bieval = Leval * X * Neval * Y * Reval;
+
+% Qeval
+% Bieval
 
 % BMIの値の計算, 多分使わない，デバッグ用
 BMIeval = Qeval + Bieval + Bieval';
