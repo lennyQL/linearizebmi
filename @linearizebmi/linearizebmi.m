@@ -43,24 +43,81 @@ end
 % str2sym(S)
 
 % 関数引数の取得(char)
-Xstr =char(vlist{1});
-Ystr =char(vlist{2});
-X0str=char(v0list{1});
-Y0str=char(v0list{2});
+if length(vlist) ~= length(v0list)
+    error('The argument 2 and 3 (as list) must be the same lengths')
+end
+
+try
+    Xstr =char(vlist{1});
+    Ystr =char(vlist{2});
+    X0str=char(v0list{1});
+    Y0str=char(v0list{2});
+catch 
+    error('varargin{2}, varargin{3} must be the char list');
+end
+
+
+Zstr = '';
+if length(vlist) == 3
+    % 分割行列も決定変数のとき
+    Zstr =char(vlist{3});
+    Z0str=char(v0list{3});
+end
+% Zの存在チェックflag
+isZ = ~isempty(Zstr);
+
 
 % 決定変数の取得
-X = evalin('base', Xstr);
-Y = evalin('base', Ystr);
+try
+    % 呼び出し関数内の値を入手
+    X = evalin('caller', Xstr);
+    Y = evalin('caller', Ystr);
+catch
+    % 実行スクリプト内の値を入手
+    X = evalin('base', Xstr);
+    Y = evalin('base', Ystr);
+end
+
+% X,Yが決定変数(sdpvar)かどうかチェック
+if ~isa(X,'sdpvar')
+    error("'%s' must be the 'sdpvar' class",Xstr);
+elseif ~isa(Y,'sdpvar')
+    error("'%s' must be the 'sdpvar' class",Ystr);
+end
+
+    
 % 暫定解の取得
-X0 = evalin('base', X0str);
-Y0 = evalin('base', Y0str);
+try
+    % 呼び出し関数内の値を入手
+    X0 = evalin('caller', X0str);
+    Y0 = evalin('caller', Y0str);
+catch
+    % 実行スクリプト内の値を入手
+    X0 = evalin('base', X0str);
+    Y0 = evalin('base', Y0str);
+end
+
+% Zも同様に決定変数と暫定解を取得
+if isZ
+    try
+        Z = evalin('caller', Zstr);
+        Z0 = evalin('caller', Z0str);
+    catch
+        Z = evalin('base', Zstr);
+        Z0 = evalin('base', Z0str);
+    end
+end
+
 
 % 決定変数と暫定解のサイズチェック
 if ~isequal(size(X),size(X0))
-    error('size of %s and %s must be equal',Xstr,X0str);
+    error("size of '%s' and '%s' must be the same",Xstr,X0str);
 end
 if ~isequal(size(Y),size(Y0))
-    error('size of %s and %s must be equal',Ystr,Y0str);
+    error("size of '%s' and '%s' must be the same",Ystr,Y0str);
+end
+if isZ && ~isequal(size(Z),size(Z0))
+    error("size of '%s' and '%s' must be the same",Zstr,Z0str);
 end
 
 % Gの取得
@@ -77,14 +134,40 @@ else
 end
 
 
+
 %% 入力の構文エラーチェック
 try
     % bmiのstrのままevalinで実行することで
     % yalmip本体のエラー処理に任せる
-    textchecker = evalin('base',S);
+    testBMI = evalin('base',S);
 catch ME
     rethrow(ME)
 end
+
+
+
+%%% 極配置でYのエラーチェックが通らない
+%%% 構造を持ったsdpvarのreplaceがうまくいかない
+% testBMI
+% Y
+% Y0
+% zeros(size(Y))
+% replace(testBMI,X,X0)
+% replace(testBMI,Y,Y0)
+% isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI)))
+% is(replace(testBMI,X,zeros(size(X))),'linear')
+
+% X,Yが記述制約のmember(sdpvar)かどうか調べる
+% if isequal(replace(testBMI,X,zeros(size(X))),zeros(size(testBMI))) ||...
+%    is(replace(testBMI,X,zeros(size(X))),'linear') 
+% else
+%     error("'%s' is not a member in this constraint.",Xstr);
+% end
+% if isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI))) ||...
+%    is(replace(testBMI,Y,zeros(size(Y))),'linear') 
+% else
+%     error("'%s' is not a member in this constraint.",Ystr);
+% end
 
 %% 字句解析の前処理(pre-process)
 
@@ -383,6 +466,71 @@ end
 smatrix = cellfun(@rmngsign,smatrix,'UniformOutput',false);
 
 
+%% sdpvarの変数名の取得
+
+% 一時的リスト
+sdpvarnamelist = []; % sdpvarの変数名list
+
+% すべての変数名を調べて，evalinでsdpvarだったら変数名を記録
+for col=1:size(smatrix,1)
+    % 各行ベクトル
+    for row=1:size(smatrix,2)
+        % 各行列要素
+        % disp(col+" "+row)
+        termlist = smatrix{col,row};
+        for i=1:size(termlist,1)
+            % 要素の各項
+            term = termlist{i,1};
+            for j=1:size(term,2)
+                % 項のそれぞれの変数
+                var = term{1,j};
+                % 転置ははずす
+                if regexp(var, "\'")
+                    var = regexprep(var,"\'","");
+                end
+                % classがsdpvarなら変数名を記録
+                try
+                    data = evalin('base',var);
+                    if isequal(class(data),'sdpvar')
+                        %
+                        % use var in function args
+                        if regexp(var, "\(.*\)")
+                            var = regexprep(var, "\w*\(","");
+                            var = regexprep(var, "\)","");
+                        end
+                        sdpvarnamelist = [sdpvarnamelist, var];
+                    end
+                catch
+                    continue
+                end
+            end
+        end
+    end
+end
+
+
+% sdpvarnamelist
+% unique(sdpvarnamelist,'stable')
+
+% オプションとしてsdpvar変数名を出力
+gBMI.sdpvarname = unique(sdpvarnamelist,'stable');
+
+
+%% そもそもLMIならそのまま出力
+
+% testBMI
+gBMI.isbmi = true;
+if is(testBMI,'linear')
+    LMI = testBMI;
+    LMIstr = "";
+    BMI = NaN;
+    gBMI.isbmi = false;
+    % disp("This is LMI")
+    return
+end
+
+
+
 %% 線形項と双線形項の分離
 % 行列
 linearmatrix = smatrix; % 定数項，1次項
@@ -407,10 +555,20 @@ for col=1:size(smatrix,1)
             for j=1:size(term,2)
                 % 項のそれぞれの変数
                 var = term{1,j};
-                if ~isempty(regexp(var, Xstr, 'once')) ||...
-                   ~isempty(regexp(var, Ystr, 'once'))
+%                 if ~isempty(regexp(var, Xstr, 'once')) ||...
+%                    ~isempty(regexp(var, Ystr, 'once'))
+%                     varcount = varcount + 1;
+%                 end
+                % sdpvarかどうか調べる
+                try
+                    data = evalin('base',var);
+                catch
+                    continue
+                end
+                if isequal(class(data),'sdpvar')
                     varcount = varcount + 1;
                 end
+                
                 if varcount >= 2
                     binearlist = updateList(binearlist,term,1);
                     break
@@ -509,9 +667,9 @@ for col=1:size(orgmatrix,1)
             for j=1:size(term,2)
                 % 項のそれぞれの変数
                 var = term{1,j};
-                if regexp(var, Xstr, 'once')
+                if isequal(var, Xstr)
                     xidx = j;
-                elseif regexp(var, Ystr, 'once') 
+                elseif isequal(var, Ystr) 
                     yidx = j;
                 end
             end    
@@ -600,11 +758,13 @@ end
 
 
 % 線形項の計算
-cellQ = cellfun(@calclinear,Q,'UniformOutput',false);
+% cellQ = cellfun(@calclinear,Q,'UniformOutput',false);
+cellQ = calclinear(Q,colsize,rowsize);
 Qeval = cell2mat(cellQ);
 
 % othermatlistの計算
-cellQother = cellfun(@calclinear,othermatlist,'UniformOutput',false);
+% cellQother = cellfun(@calclinear,othermatlist,'UniformOutput',false);
+cellQother = calclinear(othermatlist,colsize,rowsize);
 Qothereval = cell2mat(cellQother);
 % なければ0
 if isempty(Qothereval)
@@ -705,8 +865,17 @@ end
 % Reval
 
 
+% Leval
+% Neval
+% Reval
+% X
+% Y
+
 % 双線形項の計算, LXNYR
 Bieval = Leval * X * Neval * Y * Reval;
+
+% Qeval
+% Bieval
 
 % BMIの値の計算, 多分使わない，デバッグ用
 BMIeval = Qeval + Bieval + Bieval';
@@ -719,12 +888,28 @@ BMIeval = Qeval + Bieval + Bieval';
 %          G*(Y-Y0)*Reval,...
 %          -G];
 % heあり
-LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-        (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...
-         Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...
-        (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',...
-         -(G+G')];
 
+if isZ
+% 分割行列も決定変数の場合(Zがある)
+LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+    (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+     Leval*(X-X0)*Neval,...     % (1,2)
+    (Z0*(Y-Y0)*Reval)';...      % (1,3)
+    (Leval*(X-X0)*Neval)',...   % (2,1)
+     -(Z+Z'),...                % (2,2)
+     Z;...                      % (2,3)
+     Z0*(Y-Y0)*Reval,...        % (3,1)
+     Z',...                     % (3,2)
+     -(Z0+Z0')];                % (3,3)
+
+else
+% 分割行列が定数行列の場合(Zなし)
+LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+        (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...% (1,1)
+         Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...   % (1,2)
+        (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',... % (2,1)
+         -(G+G')];                                  % (2,2)
+end
      
 %% デバッグ用出力，Q,L,N,R,Gのstring
 % string配列で表現
@@ -919,6 +1104,9 @@ gBMI.sdpvar.expr = 'Q + He( L * X * N * Y * R )';
 gBMI.sdpvar.msg = 'sdpvarの対応する文字列';
 gBMI.sdpvar.X = [Xstr '-' X0str];
 gBMI.sdpvar.Y = [Ystr '-' Y0str];
+if isZ
+    gBMI.sdpvar.Z = [Zstr '-' Z0str];
+end
 
 % yalmip data
 gBMI.data.expr = 'Q + He( L * X * N * Y * R )';

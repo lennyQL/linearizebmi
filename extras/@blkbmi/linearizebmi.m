@@ -29,12 +29,14 @@ C = "["+C+"]";
 
 
 % output
+v0listtmp = v0list;
+
 if nargin == 1
     LMI = S;
 elseif nargin == 3
-    [LMI,LMIstr,gBMI,BMI] = linearizebmi(C,vlist,v0list);
+    [LMI,LMIstr,gBMI,BMI] = linearizebmi(C,vlist,v0listtmp);
 elseif nargin == 4
-    [LMI,LMIstr,gBMI,BMI] = linearizebmi(C,vlist,v0list,G);
+    [LMI,LMIstr,gBMI,BMI] = linearizebmi(C,vlist,v0listtmp,G);
 else
     error('nargin must be 1 or 3 or 4.')
 end

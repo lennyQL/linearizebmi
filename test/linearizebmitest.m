@@ -285,10 +285,51 @@ disp("LMItt: "+evaltest(LMItt));
 cll = cat(1,cll,{"8. blkbmiによる表現",evaltest(BMItt),evaltest(LMItt),tEnd});
 
 
+
+%% パターン9 分割行列Gも決定変数のとき（決定変数3つ）
+disp(newline)
+disp("###*** パターン9 ***###")
+disp("# 分割行列も決定変数のとき")
+
+Z = sdpvar(size(Y,1),size(Y,1),'full');
+Z0 = rand(size(Z));
+
+Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
+        "(B1+B2*Y*D21)'*X'               -eye(p1)           (D11+D12*Y*D21)';"+...
+        "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1)]";
+
+% [LMIauto, LMIstr] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
+tStart = tic;
+[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y','Z'},{'X0','Y0','Z0'},'G')
+tEnd = toc(tStart)
+
+
+LMImanualZ = [Q0+L*X*N*Y0*R+L*X0*N*Y*R-L*X0*N*Y0*R+...
+    (L*X*N*Y0*R+L*X0*N*Y*R-L*X0*N*Y0*R)',...% (1,1)
+     L*(X-X0)*N+R'*(Y-Y0)'*Z0',...          % (1,2)
+    (G*(Y-Y0)*R)';...                       % (1,3)
+    (L*(X-X0)*N+R'*(Y-Y0)'*Z0')',...        % (2,1)
+     -(Z+Z'),...                            % (2,2)
+     Z-Z0;...                               % (2,3)
+     G*(Y-Y0)*R,...                         % (3,1)
+    (Z-Z0)',...                             % (3,2)
+     -(G+G')];                              % (3,3)
+
+BMItt = BMImanual - BMIauto;
+LMItt = LMImanualZ - LMIauto;
+
+disp("BMItt: "+evaltest(BMItt));
+disp("LMItt: "+evaltest(LMItt));
+
+
+
 %% 極配置問題, 制約がブロック行列で表されない場合
 disp(newline)
 disp("<<<======***** 極配置問題 *****======>>>")
 
+
+X=sdpvar(n,n);
+Y=sdpvar(m2,p2, 'full');
 
 % 手動計算，真値
 BMImanual = X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X';
@@ -310,9 +351,11 @@ disp("# 制約がブロック行列で表されない")
 Fstr = "-X*(-A-B2*Y*C2)+(A+(-B2)*(-Y)*C2)'*X'";
 % Fstr = "eye(n)*X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'*eye(n,n)+(zeros(n)-zeros(n))*(zeros(n)+zeros(n))";
 
+
 tStart = tic;
 [LMIauto, LMIstr,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
 tEnd = toc(tStart)
+
 
 %
 LMIstr
@@ -329,6 +372,9 @@ disp(newline)
 disp("###*** パターン ***###")
 disp("# 構文errorテスト")
 
+X=sdpvar(n,n);
+Y=sdpvar(m2,p2, 'full');
+
 try 
     X0=sdpvar(n,n);
     Y0=sdpvar(m2,p2, 'full');
@@ -339,6 +385,7 @@ catch ME
     disp([ME.identifier ME.message]);
 end
 
+Fstr = "X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'"; 
 try 
     X0=sdpvar(n,p2);
     Y0=sdpvar(m2,p2, 'full');
@@ -365,6 +412,25 @@ catch ME
     disp([ME.identifier ME.message]);
 end
 
+try 
+    X=eye(n);
+    Y=sdpvar(m2,p2, 'full');
+    LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+    disp('correct')
+catch ME
+    disp([ME.identifier ME.message]);
+end
+
+try 
+    X=sdpvar(n,n);
+    Y=sdpvar(m2,p2, 'full');
+    Z=sdpvar(m2,p2);
+    linearizebmi(Fstr,{'X','Z'},{'X0','Y0'});
+    disp('correct')
+catch ME
+    disp([ME.identifier ME.message]);
+end
+
 %% デフォルト
 disp(newline)
 disp("###*** パターン ***###")
@@ -378,7 +444,42 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1)]";
 
 % LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
-[LMIauto, LMIstr] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
+[LMIauto, LMIstr, out] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
+
+%% そもそもLMIの場合
+disp(newline)
+disp("###*** パターン ***###")
+disp("# LMI")
+
+X=sdpvar(n,n);
+Y=sdpvar(m2,p2, 'full');
+X0=rand(size(X));
+Y0=rand(size(Y));
+
+g = sdpvar;
+h = sdpvar;
+g0 = rand(size(g));
+h0 = rand(size(h));
+
+% diag(g)
+% dig = diag(X)
+
+
+% Fstr = "A*X+(A*X)'+A*X+B2*Y*B2'+(B2*Y*B2')'";
+% Fstr = "-X";
+Fstr = "trace(X)*trace(Y)+(trace(X)*trace(Y))'"
+% Fstr = "X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'"
+
+% Fstr = "diag(g)*h+(diag(g)*h)'"
+
+[LMIauto, ~, out] = linearizebmi(Fstr,{'trace(X)','trace(Y)'},{'trace(X0)','trace(Y0)'})
+% [LMIauto, ~, out] = linearizebmi(Fstr,{'diag(g)','h'},{'diag(g0)','h0'})
+% [LMIauto, ~, out] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+
+is(LMIauto,'linear')
+
+out.sdpvarname
+
 
 %% パターンテストの結果
 disp(newline)
