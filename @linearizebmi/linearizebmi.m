@@ -911,13 +911,13 @@ LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0
          -(G+G')];                                  % (2,2)
 end
      
-%% デバッグ用出力，Q,L,N,R,Gのstring
-% string配列で表現
+%% For debug，Q,L,N,R,G's string
+% represent by string list
 
 Qchar = linear2str(Q,colsize,rowsize);
 
 
-% Lの文字列
+% L str
 Lchar = [];
 for i=1:length(L)
     var = L{i,1}{1,1};
@@ -929,7 +929,7 @@ for i=1:length(L)
     Lchar = [Lchar; string(var)];
 end
 
-% Nの文字列
+% N str
 Nchar = [];
 for i=1:length(N)
     var = N{i,1}{1,1};
@@ -939,7 +939,7 @@ for i=1:length(N)
     Nchar = [Nchar; string(var)];
 end
 
-% Rの文字列
+% R str
 Rchar = [];
 for i=1:length(R)
     var = R{i,1}{1,1};
@@ -954,7 +954,7 @@ end
 
 % Qchar, Lchar, Nchar, Rchar, Gchar
      
-%% デバッグ用出力，拡大LMIのstring
+%% For debug，string of dilated LMI
 
 % Qをheで分解する，転置を除く
 HEQmatrix = Q; % 転置なし行列
@@ -996,10 +996,10 @@ for col=1:size(Q,1)
 end
 % HEQmatrix
 
-% Qのheなしの文字列
+% Q(str): no he ver
 HEQchar = linear2str(HEQmatrix,colsize,rowsize);
 
-% 拡大LMIのstring作成
+% Create string of dilated LMI
 % XNY_: X0_N_Y0 + (X-X0)_N_Y0 + X0_N_(Y-Y0)
 Xchar = char(Xstr);
 X0char = char(X0str);
@@ -1084,24 +1084,24 @@ for i=1:length(Rchar)
     GYR = [GYR string(l)];
 end
 
-% 拡大LMI
+% Dilated LMI
 LMIstr = lmistr(QLXNYR,LXN,GYR,"-"+Gchar,XNY_);
 
 
 
 
-%% デバッグ用出力, 一般化BMIの情報
-%%%% heなし
-% Q0= Qeval; % 線形項
-% L = Leval; % 双線形項の定数行列(左)
-% N = Neval; % 双線形項の定数行列(中)
-% R = Reval; % 双線形項の定数行列(右)
+%% For Debug, general form BMI's infomations
+%%%% No He()
+% Q0= Qeval; % Linear term
+% L = Leval; % Bilinear term's coefficient matrix(left)
+% N = Neval; % ... (mid)
+% R = Reval; % ... (right)
 
 gBMI.expression = 'Q + He( L * X * N * Y * R )';
 
 % sdpvar string
 gBMI.sdpvar.expr = 'Q + He( L * X * N * Y * R )';
-gBMI.sdpvar.msg = 'sdpvarの対応する文字列';
+gBMI.sdpvar.msg = 'sdpvar as strings';
 gBMI.sdpvar.X = [Xstr '-' X0str];
 gBMI.sdpvar.Y = [Ystr '-' Y0str];
 if isZ
@@ -1110,7 +1110,7 @@ end
 
 % yalmip data
 gBMI.data.expr = 'Q + He( L * X * N * Y * R )';
-gBMI.data.msg = '各行列の数値データ';
+gBMI.data.msg = 'data for each matrix';
 gBMI.data.Q = Qeval;
 gBMI.data.L = Leval;
 gBMI.data.N = Neval;
@@ -1118,14 +1118,14 @@ gBMI.data.R = Reval;
 
 % string
 gBMI.str.expr = 'Q + He( L * X * N * Y * R )';
-gBMI.str.msg = '各行列の文字列';
+gBMI.str.msg = 'strings for each matrix';
 gBMI.str.Q = Qchar;
 gBMI.str.L = Lchar;
 gBMI.str.N = Nchar;
 gBMI.str.R = Rchar;
 
 
-%% 関数の出力
+%% Output LMI data
 % LMI = LMIeval + LMIeval';
 % BMI = BMIeval + BMIeval';
 

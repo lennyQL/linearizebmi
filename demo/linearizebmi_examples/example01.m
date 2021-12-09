@@ -1,10 +1,11 @@
-%%% SDP solver の設定
+%%% SDP solver settings (YALMIP)
 opts=sdpsettings;
-opts.solver='sedumi';	% 使用する SDP solver
+opts.solver='sedumi';	% SDP solver
 opts.verbose=0;
 
-%%% 問題の定義
-% 制御対象データの定義
+%%% Define problem
+% Define plant data
+%  REFFERENCE:
 %  S. N. Singh and A. A. R. Coelho,
 %  "Nonlinear control of mismatched uncertain linear systems
 %   and application to control of aircraft",
@@ -28,42 +29,52 @@ d12=(1/sqrt(2))*[1, 0; 0, 1];
 d21=zeros(ny,nw);
 
 
-% 決定変数の定義
-p=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列
-k=sdpvar(nu,ny,'full');		% 制御器(定数ゲイン)
-g=sdpvar(1,1);			% H∞ノルム
+% Define decision matrices
+p=sdpvar(nx,nx,'symmetric');	% Lyapunov matrix
+k=sdpvar(nu,ny,'full');         % Controller (static gain)
+g=sdpvar(1,1);                  % H-inf norm
 
-% 双線形項決定変数の暫定解の宣言 (dummy)
+
+% Define feasible solutions for 
+% each decision matrix in a bilinear term.
 p0=sdpvar(nx,nx,'symmetric');
 k0=sdpvar(nu,ny,'full');
 
-p0=zeros(size(p));
-k0=zeros(size(k));
 
-G =sdpvar(size(k,1));
-G0=eye(size(G));
+% Define decomposition matrix
+G =sdpvar(size(k,1));   % decision matrix
+G0=eye(size(G));        % feasible solution
 
 
-% BMI 最適化問題の定義
+% BMI as a string
 Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
         "(p*(b1+b2*k*d21))',            -g*eye(nw,nw),     (d11+d12*k*d21)';" +...
         "c1+d12*k*c2,                   d11+d12*k*d21,  -g*eye(nz)]";
 
-%%% 提案した linearizebmi() による BMI の十分条件化
-[LMIauto,LMIstr]=linearizebmi(Fstr,{'p','k','G'},{'p0','k0','G0'})
+    
+%%% Use linearizebmi() to convert BMI into dilated LMI
+% (case 1) G is a constant matrix
 [LMIauto,LMIstr]=linearizebmi(Fstr,{'p','k'},{'p0','k0'});
+% (case 2) G is a decision matrix
+% [LMIauto,LMIstr]=linearizebmi(Fstr,{'p','k','G'},{'p0','k0','G0'});
+
+% Define constraints
 LMI=[LMIauto<=0];
 
-%%% 逐次 LMI 化法
-% 初期暫定解の宣言
+
+%%% Overbounding Aprroximation Method
+% Initial feasible solutions
 p0init=zeros(size(p));
 k0init=zeros(size(k));
+G0init=eye(size(G));
 
-lcmax=200;	% 繰り返し回数の設定
+% sequentially optimization
+lcmax=200;	% maximum step numbers
 ggall=[];
 for lc=1:lcmax
   extLMI=LMI;
   extLMI=replace(extLMI,p0,p0init);
+  extLMI=replace(extLMI,k0,k0init);
   extLMI=replace(extLMI,k0,k0init);
 
   optimize(extLMI,g,opts);
@@ -71,14 +82,14 @@ for lc=1:lcmax
   p0init=double(p);
   k0init=double(k);
 
-  % 達成値表示のためのコード
+  % Print out achieved optimal value
   gg=double(g);
   ggall=[ggall,gg];
   fprintf('Loop#%03d: %9.4f\n',lc,gg);
 
 end
 
-% 達成値の更新過程の表示
+% Figure achieved value g
 figure;
 plot(ggall);
 figure;
