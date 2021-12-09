@@ -8,8 +8,9 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 %     optg:   a solution which you want to optimize
 %     opts:   some options
 %             (ex:
-%                 opts = sdpsetting
-%                 opts.solver = 'sedumi'
+%                 opt = sdpsetting
+%                 opt.solver = 'sedumi'
+%                 opts.yalmip = opt
 %                 opts.lcmax = 200
 %                 opts.dilate = 1
 %             )
