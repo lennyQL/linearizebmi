@@ -67,6 +67,11 @@ if ~isfield(opts,'dilate')
     opts.dilate = false;
 end
 
+% select regularization term
+if ~isfield(opts,'regterm')
+    opts.regterm = false;
+end
+
 % debug stdout flag
 if ~isfield(opts,'showstep')
     opts.showstep = true;
@@ -373,7 +378,7 @@ tmall=[];   % computational times
 tStart = tic;
 
 for lc=1:lcmax
-  % replace dummy to new optimized val
+  %%% replace dummy to new optimized val
   extLMI=LMI;
   extLMI=replace(extLMI,X0dummy,X0);
   extLMI=replace(extLMI,Y0dummy,Y0);
@@ -381,8 +386,23 @@ for lc=1:lcmax
     extLMI=replace(extLMI,Z0dummy,Z0);
   end
   
-  % optimize by dilated LMI constraits as sufficient conditions of BMI
-  optimize(extLMI,g,opts.yalmip);
+  %%% applying regularization term
+  if opts.regterm
+      lmdc = 10e-4;
+      froX = norm(X-X0,'fro');
+      froY = norm(Y-Y0,'fro');
+      maxX0 = max(X0,[],'all');
+      maxY0 = max(Y0,[],'all');
+      regtermX = (lmdc * froX^2) / (maxX0 * lc);
+      regtermY = (lmdc * froY^2) / (maxY0 * lc);
+      optval = g + regtermX + regtermY;
+  else
+      optval = g;
+  end
+  
+  %%% optimize by dilated LMI constraits as sufficient conditions of BMI
+  optimize(extLMI,optval,opts.yalmip);
+  % optimize(extLMI,g,opts.yalmip);
   tEnd = toc(tStart);
   
   %%% debug

@@ -1,7 +1,7 @@
 %%% 問題の定義
 % 制御対象データの定義
 %%% 制御対象の係数行列，次元をインポート
-[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); 
+% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE2');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE3');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE4'); 
@@ -10,6 +10,7 @@
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN17'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC7'); 
+[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC17');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC1');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC2');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC3');
@@ -74,15 +75,26 @@ Flist = {Fstr, "-p"};
 
 
 %%% 提案した solvebmi() で 逐次 LMI 化法を実行
-%%%
+%%% 分割行列のタイプ別の比較
 % 分割行列Gは定数
 opts.dilate = 0;
+opts.regterm= 0;
 [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
-
 %%%
 % 分割行列Gは決定変数
 opts.dilate = 1;
+opts.regterm= 0;
 [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
+
+%%% ペナルティ項ありなしの比較(分割行列は決定変数)
+% % ペナルティ項なし
+% opts.dilate = 1;
+% opts.regterm= 0;
+% [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
+% % ペナルティ項あり
+% opts.dilate = 1;
+% opts.regterm= 1;
+% [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 
 
 %%% output
