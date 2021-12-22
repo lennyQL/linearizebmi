@@ -298,9 +298,9 @@ Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
         "(B1+B2*Y*D21)'*X'               -eye(p1)           (D11+D12*Y*D21)';"+...
         "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1)]";
 
-% [LMIauto, LMIstr] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
+% [LMIauto, Lstr,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
 tStart = tic;
-[LMIauto, ~,~, BMIauto] = linearizebmi(Fstr,{'X','Y','Z'},{'X0','Y0','Z0'},'G')
+[LMIauto, Lstr,~, BMIauto] = linearizebmi(Fstr,{'X','Y','Z'},{'X0','Y0','Z0'},'G')
 tEnd = toc(tStart)
 
 
@@ -331,6 +331,9 @@ disp("<<<======***** 極配置問題 *****======>>>")
 X=sdpvar(n,n);
 Y=sdpvar(m2,p2, 'full');
 
+G = eye(size(Y,1));
+
+
 % 手動計算，真値
 BMImanual = X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X';
 %
@@ -354,13 +357,16 @@ Fstr = "-X*(-A-B2*Y*C2)+(A+(-B2)*(-Y)*C2)'*X'";
 
 tStart = tic;
 [LMIauto, LMIstr,~, BMIauto] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'});
+% G=sdpvar(size(Y,1),size(Y,1),'full');
+% H=rand(size(G));
+% [LMIauto, Lstr,~, BMIauto] = linearizebmi(Fstr,{'X','Y','G'},{'X0','Y0','H'})
 tEnd = toc(tStart)
 
 
 %
 LMIstr
-BMItt = BMImanual - BMIauto;
-LMItt = LMImanual - LMIauto;
+BMItt = BMImanual - BMIauto
+LMItt = LMImanual - LMIauto
 
 disp("BMItt: "+evaltest(BMItt));
 disp("LMItt: "+evaltest(LMItt));
@@ -479,6 +485,33 @@ Fstr = "trace(X)*trace(Y)+(trace(X)*trace(Y))'"
 is(LMIauto,'linear')
 
 out.sdpvarname
+
+
+%% Webマニュアル用 (極配置)
+disp(newline)
+disp("###*** Webマニュアル用 (極配置) ***###")
+
+P=sdpvar(n,n);
+K=sdpvar(m2,p2, 'full');
+P0=rand(size(X));
+K0=rand(size(Y));
+% P0=eye(size(X));
+% K0=eye(size(Y));
+
+
+
+% Fstr = "X*A+X*B2*Y*C2+A'*X'+C2'*Y'*B2'*X'";
+Fstr = "P*(A+B2*K*C2)+(P*(A+B2*K*C2))'";
+
+G=eye(size(G));
+[LMIauto, LMIstr] = linearizebmi(Fstr,{'P','K'},{'P0','K0'},'G')
+
+G=sdpvar(size(Y,1),size(Y,1),'full');
+H=rand(size(G));
+[LMIauto, Lstr] = linearizebmi(Fstr,{'P','K','G'},{'P0','K0','H'})
+
+% LMIstr
+% Lstr
 
 
 %% パターンテストの結果

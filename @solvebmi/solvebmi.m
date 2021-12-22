@@ -126,7 +126,7 @@ for i=1:sizeS
     if isZ
         [LMIauto,~,gLMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
     else
-        [LMIauto,~,gLMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'})
+        [LMIauto,~,gLMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'});
     end
     
     
@@ -138,7 +138,7 @@ for i=1:sizeS
         BMImat = LMIauto;
         BMIopt = gLMI;
     else
-        LMIlist = [LMIlist, LMIauto<=0]
+        LMIlist = [LMIlist, LMIauto<=0];
     end
     
     % sdpvar names in all constraints
@@ -380,7 +380,7 @@ for lc=1:lcmax
   %%% replace dummy to new optimized val
   extLMI=LMI;
   extLMI=replace(extLMI,X0dummy,X0);
-  extLMI=replace(extLMI,Y0dummy,Y0)
+  extLMI=replace(extLMI,Y0dummy,Y0);
   if isZ
     extLMI=replace(extLMI,Z0dummy,Z0);
   end
@@ -395,7 +395,7 @@ for lc=1:lcmax
   end
   
   %%% optimize by dilated LMI constraits as sufficient conditions of BMI
-  optimize(extLMI,optval,opts.yalmip)
+  optimize(extLMI,optval,opts.yalmip);
   % optimize(extLMI,g,opts.yalmip);
   tEnd = toc(tStart);
   

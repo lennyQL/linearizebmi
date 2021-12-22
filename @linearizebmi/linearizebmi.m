@@ -58,6 +58,7 @@ end
 
 
 Zstr = '';
+Z0str = '';
 if length(vlist) == 3
     % 分割行列も決定変数のとき
     Zstr =char(vlist{3});
@@ -123,7 +124,7 @@ end
 % Gの取得
 if nargin<4
     % デフォルト：単位行列
-    Gchar = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
+    Gchar = [func2str(@eye) '(' num2str(size(Y,1)) ')'];
     G = eye(size(Y,1));
 elseif isa(G,'string') || isa(G,'char') 
     % G のclassチェック
@@ -946,7 +947,7 @@ for i=1:length(R)
     if var == "1eye"
         var = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
     elseif var == "0zero"
-        var = [func2str(@zeros) '(' num2str(size(Reval,1)) ',' num2str(rowsize(i)) ')'];
+        var = [func2str(@zeros) '(' num2str(size(Y,1)) ',' num2str(rowsize(i)) ')'];
     end
     Rchar = [Rchar string(var)];
 end
@@ -1067,26 +1068,67 @@ for i=1:length(Lchar)
     LXN = [LXN; string(l)];
 end
 
-% GYR
-GYR = [];
-for i=1:length(Rchar)
-    if regexp(Rchar(i), "zeros")
-        l = char(Rchar(i));
-    elseif regexp(Gchar, "eye")
-        l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
-    elseif regexp(Rchar(i), "eye")
-        l = [char(Gchar) '*(' Ychar '-' Y0char ')'];
-    elseif regexp(Gchar, "eye") & regexp(Rchar(i), "eye")
-        l = [Ychar '-' Y0char];
-    else
-        l = [char(Gchar) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
+
+if ~isZ
+    % GYR
+    GYR = [];
+    for i=1:length(Rchar)
+        if regexp(Rchar(i), "zeros")
+            l = char(Rchar(i));
+        elseif regexp(Gchar, "eye")
+            l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
+        elseif regexp(Rchar(i), "eye")
+            l = [char(Gchar) '*(' Ychar '-' Y0char ')'];
+        elseif regexp(Gchar, "eye") & regexp(Rchar(i), "eye")
+            l = [Ychar '-' Y0char];
+        else
+            l = [char(Gchar) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
+        end
+        GYR = [GYR string(l)];
     end
-    GYR = [GYR string(l)];
+else
+    % HYR
+    HYR = [];
+    Zchar = string(Zstr);
+    Z0char = string(Z0str);
+    for i=1:length(Rchar)
+        if regexp(Rchar(i), "zeros")
+            l = char(Rchar(i));
+        elseif regexp(Z0char, "eye")
+            l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
+        elseif regexp(Rchar(i), "eye")
+            l = [char(Z0char) '*(' Ychar '-' Y0char ')'];
+        elseif regexp(Z0char, "eye") & regexp(Rchar(i), "eye")
+            l = [Ychar '-' Y0char];
+        else
+            l = [char(Z0char) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
+        end
+        HYR = [HYR string(l)];
+    end
+
+    % zeros
+    % HYR'
+    O1 = [];
+    for i=1:length(Rchar)
+        o = [func2str(@zeros) '(' num2str(colsize(i)) ',' num2str(size(Z,2)) ')'];
+        O1 = [O1; string(o)];
+    end
+    % LXN'
+    O2 = [];
+    for i=1:length(Lchar)
+        o = [func2str(@zeros) '(' num2str(size(Z,1)) ',' num2str(rowsize(i)) ')'];
+        O2 = [O2 string(o)];
+    end
+    % Z'
+    O3 = [func2str(@zeros) '(' num2str(size(Z,2)) ',' num2str(size(Z,1)) ')'];
 end
 
 % Dilated LMI
-LMIstr = lmistr(QLXNYR,LXN,GYR,"-"+Gchar,XNY_);
-
+if isZ
+    LMIstr = lmistr(QLXNYR, LXN, O1, O2, "-"+Zchar, Zchar, HYR, O3, "-"+Z0char, XNY_);
+else
+    LMIstr = lmistr(QLXNYR,LXN,GYR,"-"+Gchar,XNY_);
+end
 
 
 
