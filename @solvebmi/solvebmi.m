@@ -26,30 +26,48 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 
 %% get input value
 % input as char
-try
-    Xstr =char(vlist{1});
-    Ystr =char(vlist{2});
-%     X0str=char(v0list{1});
-%     Y0str=char(v0list{2});
-catch 
-    error('varargin{2} must be the char list');
+strlist = {};   % var string in bilinear term
+vallist = {};   % var value in bilinear term
+sizelist = {};  % var size in bilinear term
+dummylist = {}; % dummy for X0,Y0
+
+for i=1:length(vlist)
+    vl = vlist{i};
+    try
+        % get var string
+        Xstr =char(vl{1});
+        Ystr =char(vl{2});
+        % get var value
+        X = evalin('caller', Xstr);
+        Y = evalin('caller', Ystr);
+        % get var size
+        sizeX = size(X);
+        sizeY = size(Y);
+        % set var dummy
+        X0dummy = sdpvar(sizeX(1),sizeX(2));
+        Y0dummy = sdpvar(sizeY(1),sizeY(2));
+    catch 
+        error('varargin{2} must be the char list');
+    end
+    strlist = [strlist; {Xstr,Ystr}];
+    vallist = [vallist; {X,Y}];
+    sizelist = [sizelist; {sizeX,sizeY}];
+    dummylist = [dummylist; {X0dummy,Y0dummy}];
 end
+vallist
+vallist{1}
+vallist{2}
+strlist
+strlist{1}
+strlist{2}
+sizelist
+sizelist{1,2}
+sizelist{2,2}
+dummylist
+dummylist{1}
+dummylist{2,2}
 
 
-% determinate value
-X = evalin('caller', Xstr);
-Y = evalin('caller', Ystr);
-% presolve value (init value)
-% X0 = evalin('base', X0str);
-% Y0 = evalin('base', Y0str);
-
-% get value size
-sizeX = size(X);
-sizeY = size(Y);
-
-% presolve value(dummy)
-X0dummy = sdpvar(sizeX(1),sizeX(2));
-Y0dummy = sdpvar(sizeY(1),sizeY(2));
 
 
 %%% setup default option if not determind
