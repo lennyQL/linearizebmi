@@ -48,6 +48,7 @@ yalmipopts.verbose=0;       % No details
 %%% solvebmi options:
 opts.yalmip = yalmipopts;   % yalmip options
 opts.lcmax = 200;           % Maximum step times
+opts.regterm=1;
 
 
 %%% BMI as a string
@@ -96,7 +97,7 @@ figure;
 plot(ggall,'LineWidth',2);
 xlabel('Number of Iteration')
 ylabel('$H_{\infty}$ norm','Interpreter','latex')
-legend('dilated LMI (5)','dilated LMI (7)')
+legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)')
 grid on
 
 
@@ -108,7 +109,7 @@ figure;
 plot(ttall,'LineWidth',2);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
-legend('dilated LMI (5)','dilated LMI (7)')
+legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)')
 xticks(0:1:200)
 grid on
 

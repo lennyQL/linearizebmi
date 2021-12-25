@@ -35,118 +35,118 @@
 
 
 %% H2/Hinf問題
-disp(newline)
-disp("#####*** H2/Hinf問題 ***#####")
-
-
-%%% 決定変数の定義
-p=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列 (Hinf)
-p2=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列 (H2)
-k=sdpvar(nu,ny,'full');         % 制御器(定数ゲイン)
-g=sdpvar(1,1);                  % H2ノルム
-R=sdpvar(nz,nz,'symmetric');    % H2ノルム=sqrt(trace(R))
- 
-
-% 初期値
-assign(p,eye(nx,nx))
-assign(p2,eye(nx,nx))
-assign(k,zeros(nu,ny))
-% assign(R,zeros(nz,nz))
-assign(R,eye(nz,nz))
-assign(g,0)
-
-
-%%% SDP solver の設定
-yalmipopts=sdpsettings;
-yalmipopts.solver='sedumi';	% 使用する SDP solver
-yalmipopts.verbose=0;         % 詳細表示
-    
-%%% solvebmiのオプション:
-opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
-opts.lcmax = 200;            % 繰り返し実行する回数
-% opts.showstep = 0;        % 各ステップを表示(bool)
-% opts.dilate = 1;          % 分割行列Gも最適化するか(bool)
-
-
-
-%%% BMI 最適化問題の定義
-Fstr1 = "[p2*(a+b2*k*c2)+(p2*(a+b2*k*c2))',p2*(b1+b2*k*d21);"+...
-        "(p2*(b1+b2*k*d21))',            -eye(nw,nw)];";
-
-Fstr2 = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
-        "(p*(b1+b2*k*d21))',            -eye(nw,nw),     (d11+d12*k*d21)';" +...
-        "c1+d12*k*c2,                   d11+d12*k*d21,  -eye(nz)]";
-
-% その他のLMI
-Fstr3 = "trace(R)-g";
-
-Fstr4 = "[-R              -(c1+d12*k*c2);"+...
-        "-(c1+d12*k*c2)'  -p2];";
-
-Flist = {Fstr1, Fstr2, Fstr3, Fstr4,"-p2","-p"};
-
-
-%%% 関数仕様test
-opts.dilate = 0;
-opts.regterm= 0;
-[gg,vars,output] = solvebmi(Flist,{{'p2','k'},{'p','k'}},g,opts);
-
-
-%%% 提案した solvebmi() で 逐次 LMI 化法を実行
-%%% 分割行列のタイプ別の比較
-% % 分割行列Gは定数
+% disp(newline)
+% disp("#####*** H2/Hinf問題 ***#####")
+% 
+% 
+% %%% 決定変数の定義
+% p=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列 (Hinf)
+% p2=sdpvar(nx,nx,'symmetric');	% Lyapunov 行列 (H2)
+% k=sdpvar(nu,ny,'full');         % 制御器(定数ゲイン)
+% g=sdpvar(1,1);                  % H2ノルム
+% R=sdpvar(nz,nz,'symmetric');    % H2ノルム=sqrt(trace(R))
+%  
+% 
+% % 初期値
+% assign(p,eye(nx,nx))
+% assign(p2,eye(nx,nx))
+% assign(k,zeros(nu,ny))
+% % assign(R,zeros(nz,nz))
+% assign(R,eye(nz,nz))
+% assign(g,0)
+% 
+% 
+% %%% SDP solver の設定
+% yalmipopts=sdpsettings;
+% yalmipopts.solver='sedumi';	% 使用する SDP solver
+% yalmipopts.verbose=0;         % 詳細表示
+%     
+% %%% solvebmiのオプション:
+% opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
+% opts.lcmax = 200;            % 繰り返し実行する回数
+% % opts.showstep = 0;        % 各ステップを表示(bool)
+% % opts.dilate = 1;          % 分割行列Gも最適化するか(bool)
+% 
+% 
+% 
+% %%% BMI 最適化問題の定義
+% Fstr1 = "[p2*(a+b2*k*c2)+(p2*(a+b2*k*c2))',p2*(b1+b2*k*d21);"+...
+%         "(p2*(b1+b2*k*d21))',            -eye(nw,nw)];";
+% 
+% Fstr2 = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
+%         "(p*(b1+b2*k*d21))',            -eye(nw,nw),     (d11+d12*k*d21)';" +...
+%         "c1+d12*k*c2,                   d11+d12*k*d21,  -eye(nz)]";
+% 
+% % その他のLMI
+% Fstr3 = "trace(R)-g";
+% 
+% Fstr4 = "[-R              -(c1+d12*k*c2);"+...
+%         "-(c1+d12*k*c2)'  -p2];";
+% 
+% Flist = {Fstr1, Fstr2, Fstr3, Fstr4,"-p2","-p"};
+% 
+% 
+% %%% 関数仕様test
+% opts.dilate = 0;
+% opts.regterm= 0;
+% [gg,vars,output] = solvebmi(Flist,{{'p2','k'},{'p','k'}},g,opts);
+% 
+% 
+% %%% 提案した solvebmi() で 逐次 LMI 化法を実行
+% %%% 分割行列のタイプ別の比較
+% % % 分割行列Gは定数
+% % opts.dilate = 0;
+% % opts.regterm= 0;
+% % [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
+% % %%%
+% % % 分割行列Gは決定変数
+% % opts.dilate = 1;
+% % opts.regterm= 0;
+% % [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
+% 
+% %%% ペナルティ項ありなしの比較(分割行列は決定変数)
+% % ペナルティ項なし
 % opts.dilate = 0;
 % opts.regterm= 0;
 % [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
-% %%%
-% % 分割行列Gは決定変数
+% % ペナルティ項あり
 % opts.dilate = 1;
-% opts.regterm= 0;
+% opts.regterm= 1;
 % [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
-
-%%% ペナルティ項ありなしの比較(分割行列は決定変数)
-% ペナルティ項なし
-opts.dilate = 0;
-opts.regterm= 0;
-[gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
-% ペナルティ項あり
-opts.dilate = 1;
-opts.regterm= 1;
-[gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
-
-
-
-gg
-gg2
-
-K1 = vars.k
-K2 = vars2.k
-
-vars
-vars2
-
-
-%%% 達成値の更新過程の表示
-ggall = [output.ggall; output2.ggall]';
-figure;
-plot(ggall,'LineWidth',1);
-xlabel('Number of Iteration')
-ylabel('$H_{2}$ norm','Interpreter','latex')
-% legend('Sebe(2007)','Sebe(2018)')
-legend('dilated LMI (5)','dilated LMI (7)')
-grid on
-
-%%% alphaの最適化過程表示
-[ttall1,ttall2] = matchSize(output.ttall, output2.ttall);
-ttall = [ttall1; ttall2]';
-figure;
-plot(ttall,'LineWidth',1);
-xlabel('Number of Iteration')
-ylabel('$\alpha$','Interpreter','latex')
-% legend('Sebe(2007)','Sebe(2018)')
-legend('dilated LMI (5)','dilated LMI (7)')
-xticks(0:1:200)
-grid on
+% 
+% 
+% 
+% gg
+% gg2
+% 
+% K1 = vars.k
+% K2 = vars2.k
+% 
+% vars
+% vars2
+% 
+% 
+% %%% 達成値の更新過程の表示
+% ggall = [output.ggall; output2.ggall]';
+% figure;
+% plot(ggall,'LineWidth',1);
+% xlabel('Number of Iteration')
+% ylabel('$H_{2}$ norm','Interpreter','latex')
+% % legend('Sebe(2007)','Sebe(2018)')
+% legend('dilated LMI (5)','dilated LMI (7)')
+% grid on
+% 
+% %%% alphaの最適化過程表示
+% [ttall1,ttall2] = matchSize(output.ttall, output2.ttall);
+% ttall = [ttall1; ttall2]';
+% figure;
+% plot(ttall,'LineWidth',1);
+% xlabel('Number of Iteration')
+% ylabel('$\alpha$','Interpreter','latex')
+% % legend('Sebe(2007)','Sebe(2018)')
+% legend('dilated LMI (5)','dilated LMI (7)')
+% xticks(0:1:200)
+% grid on
 
 
 

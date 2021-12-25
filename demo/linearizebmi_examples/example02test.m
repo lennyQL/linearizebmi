@@ -1,15 +1,10 @@
-%%%
-% H-infinity control by static output feedback
-% with the overbounding approximation proposed in Sebe (2007).
-
-
 %%% SDP solver settings (YALMIP)
 opts=sdpsettings;
 opts.solver='sedumi';	% SDP solver
 opts.verbose=0;
 stoptol=5e-7;		% stop tolerance
-lcmax=2e2;		% maximum step numbers
-pt=1e-2;		% regularization factor in optimization
+lcmax=1e4;		% maximum step numbers
+pt=1e-2;		% penalty factor in optimization
 
 
 %%% Define problem (from COMPleib)
@@ -37,16 +32,16 @@ d21=zeros(ny,nw);
 p=sdpvar(nx,nx,'symmetric');	% Lyapunov matrix
 k=sdpvar(nu,ny,'full');         % Controller (static gain)
 g=sdpvar(1,1);                  % H-infinity norm
-v=sdpvar(1,1);			% regularization term
+v=sdpvar(1,1);			% penalty term
 
 % Define dummy decision variables for successive overbounding
 p0=sdpvar(nx,nx,'symmetric');
 k0=sdpvar(nu,ny,'full');
-g0=sdpvar(1,1);
 
 % Define decomposition matrix
 nk=size(k,1);
-G0=eye(nk);
+G =sdpvar(nk,nk,'full');   % decomposition matrix (decision value)
+G0=sdpvar(nk,nk,'full');   % decomposition matrix (dummy)
 
 %% Definition of BMI problem
 % BMI as a string
@@ -57,27 +52,29 @@ Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
     
 %%% Use linearizebmi() to convert BMI into dilated LMI
 % (case 1) decomposition matrix G is constant
-[LMIauto,LMIstr,~,orgBMI]=linearizebmi(Fstr,{'p','k'},{'p0','k0'},'G0');
+%[LMIauto,LMIstr]=linearizebmi(Fstr,{'p','k'},{'p0','k0'},'G0');
+% (case 2) decomposition matrix G is a decision value
+[LMIauto,LMIstr,~,orgBMI]=linearizebmi(Fstr,{'p','k','G'},{'p0','k0','G0'});
 
 % Define extended H-infinity constraints
 LMI=[LMIauto<=0,p>=1e-6];
 
 % add penalty term
-vm=[vec(p)-vec(p0);vec(k)-vec(k0);g-g0];
+vm=[vec(p)-vec(p0);vec(k)-vec(k0);vec(G)-vec(G0)];
 vn=size(vm,1);
-LMI=[LMI,[eye(vn),vm;vm',v]>=0];
+% LMI=[LMI,[eye(vn),vm;vm',v]>=0];
 
 
 %%% Overbounding Aprroximation Method
 %% Initial feasible solutions
-% (K=O is a stabilizing static gain and is an initial candidate)
-k0init=zeros(nu,ny);	
+% (K=O is a stabilizing static gain)
+k0init=zeros(nu,ny)	
 %% Calculate initial Lyapunov matrix and H-infinity norm
 initLMI=replace(orgBMI,k,k0init);
 optimize([initLMI<=0,p>=1e-6],g,opts);
-p0init=double(p);
-g0init=double(g);
-ggsav=g0init;
+p0init=double(p)
+ggsav=double(g)
+G0init=eye(size(G));
 
 %% sequentially optimization 
 ggall=ggsav;
@@ -85,16 +82,17 @@ for lc=1:lcmax
   extLMI=LMI;
   extLMI=replace(extLMI,p0,p0init);
   extLMI=replace(extLMI,k0,k0init);
-  extLMI=replace(extLMI,g0,g0init);
+  extLMI=replace(extLMI,G0,G0init);
 
-  optimize(extLMI,g+v*pt,opts);
+%   optimize(extLMI,g+v*pt,opts);
+  optimize(extLMI,g,opts);
 
   p0init=double(p);
   k0init=double(k);
-  g0init=double(g);
+  G0init=double(G);
 
   % Print out achieved optimal value
-  gg=g0init;
+  gg=double(g);
   ggall=[ggall,gg];
   fprintf('Loop#%03d: %9.4f\n',lc,gg);
 
@@ -107,10 +105,10 @@ end
 %% Figures achieved H-infinity norm
 % linear scale
 figure;
-plot(0:length(ggall)-1,ggall);
+plot(ggall);
 grid on;
 
 % log-scale
 figure;
-semilogy(0:length(ggall)-1,ggall);
+semilogy(ggall);
 grid on;

@@ -36,6 +36,10 @@ function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G)
 %       ・ベクトル同士の積による行列の記述が可能
 %
 
+% this value should be passed by options
+t=0.99;
+
+
 % 文字列を文字ベクトルに変換
 if isa(S,'string')
     S = char(S);
@@ -894,14 +898,14 @@ if isZ
 % 分割行列も決定変数の場合(Zがある)
 LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-     Leval*(X-X0)*Neval,...     % (1,2)
-    (Z0*(Y-Y0)*Reval)';...      % (1,3)
-    (Leval*(X-X0)*Neval)',...   % (2,1)
+     Leval*(X-X0)*Neval+(Z0*t*(Y-Y0)*Reval)',...     % (1,2)
+    (Z0*(1-t)*(Y-Y0)*Reval)';...      % (1,3)
+     Z0*t*(Y-Y0)*Reval+(Leval*(X-X0)*Neval)',...   % (2,1)
      -(Z+Z'),...                % (2,2)
-     Z;...                      % (2,3)
-     Z0*(Y-Y0)*Reval,...        % (3,1)
-     Z',...                     % (3,2)
-     -(Z0+Z0')];                % (3,3)
+     Z-Z0*t;...                      % (2,3)
+     Z0*(1-t)*(Y-Y0)*Reval,...        % (3,1)
+    (Z-Z0*t)',...                     % (3,2)
+     -(Z0+Z0')*(1-t)];                % (3,3)
 
 else
 % 分割行列が定数行列の場合(Zなし)
