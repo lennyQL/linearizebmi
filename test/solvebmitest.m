@@ -1,14 +1,14 @@
 %%% 問題の定義
 % 制御対象データの定義
 %%% 制御対象の係数行列，次元をインポート
-[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); 
+% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE2');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE3');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE4'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN4');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN9'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN17'); 
-% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3'); 
+[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC7'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC17');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC1');
@@ -167,6 +167,8 @@ assign(p,eye(nx,nx))
 assign(k,zeros(nu,ny))
 assign(g,0)
 
+%%% デフォルトオプション
+opts = solvebmisettings;
 
 %%% SDP solver の設定
 yalmipopts=sdpsettings;
@@ -175,9 +177,7 @@ yalmipopts.verbose=0;         % 詳細表示
 
 %%% solvebmiのオプション:
 opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
-opts.lcmax = 200;            % 繰り返し実行する回数
-% opts.showstep = 0;        % 各ステップを表示(bool)
-% opts.dilate = 1;          % 分割行列Gも最適化するか(bool)
+% opts.lcmax = 200;            % 繰り返し実行する回数
 
 
 
@@ -206,11 +206,11 @@ Flist = {Fstr, "-p"};
 %%% ペナルティ項ありなしの比較(分割行列は決定変数)
 % ペナルティ項なし
 opts.dilate = 1;
-opts.regterm= 0;
-[gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
+opts.penalty= 0;
+% [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
 % ペナルティ項あり
 opts.dilate = 1;
-opts.regterm= 1;
+opts.penalty= 1e-2;
 [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 
 
@@ -268,7 +268,8 @@ vars2
 % figure;
 % semilogy(output2.ggall);
 
-ggall = [output.ggall; output2.ggall]';
+[ggall1,ggall2] = matchSize(output.ggall, output2.ggall);
+ggall = [ggall1; ggall2]';
 figure;
 plot(ggall,'LineWidth',1);
 xlabel('Number of Iteration')

@@ -50,7 +50,7 @@ yalmipopts.verbose=0;       % No details
 %%% solvebmi options:
 opts.yalmip = yalmipopts;   % yalmip options
 opts.lcmax = 200;           % Maximum step times
-opts.regterm=1;
+% opts.penalty=1e-2;
 
 %%% BMI as a string
 Fstr1 = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21);"+...

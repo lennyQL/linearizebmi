@@ -54,32 +54,8 @@ Y0dummy = sdpvar(sizeY(1),sizeY(2));
 
 %%% setup default option if not determind
 % if not opts input
-if nargin == 3 || ~isfield(opts,'yalmip')
-    %%% set SDP solver
-    opt=sdpsettings;
-    opt.solver='sedumi';	% 'sedumi' as default SDP solver
-    opt.verbose=0;
-    opts.yalmip = opt;
-end
-
-% select dilation type
-if ~isfield(opts,'dilate')
-    opts.dilate = false;
-end
-
-% select regularization term
-if ~isfield(opts,'regterm')
-    opts.regterm = false;
-end
-
-% debug stdout flag
-if ~isfield(opts,'showstep')
-    opts.showstep = true;
-end
-
-% loop count for option
-if ~isfield(opts,'lcmax')
-    opts.lcmax = 200;
+if nargin == 3
+    opts = solvebmisettings;
 end
 
 
@@ -138,7 +114,7 @@ for i=1:sizeS
         BMImat = LMIauto;
         BMIopt = gLMI;
     else
-        LMIlist = [LMIlist, LMIauto<=0];
+        LMIlist = [LMIlist, LMIauto<=-1e-6];
     end
     
     % sdpvar names in all constraints
@@ -339,7 +315,7 @@ end
 %% run: overbounding approximation method
 
 % constraints
-LMI = [BMImat<=-eps*eye(size(BMImat))];
+LMI = [BMImat<=0];
 if isZ
   LMI = [LMI, Z+Z'>=eps];
 %   LMI = [LMI, Z+Z'>=loweps];
@@ -350,7 +326,18 @@ end
 % Append other LMI
 LMI = [LMI, LMIlist];
 
-
+% Add penalty term
+v = sdpvar;
+pt = opts.penalty;
+if ~isequal(pt,0)
+    if isZ
+        vm=[vec(X)-vec(X0dummy);vec(Y)-vec(Y0dummy);vec(Z)-vec(Z0dummy)];
+    else
+        vm=[vec(X)-vec(X0dummy);vec(Y)-vec(Y0dummy)];
+    end
+    vn=size(vm,1);
+    LMI=[LMI,[eye(vn),vm;vm',v]>=0];
+end
 
 % init val from upper proccess
 X0 = X0init;
@@ -370,9 +357,11 @@ if debug
   disp("start")
 end
 
-gg = 1e3;
-lcmax=opts.lcmax;	% roop step num
-ggall=[];   % optimal solutions
+lcmax=opts.lcmax;
+stoptol=opts.stoptol;
+
+ggsav = double(g);
+ggall=ggsav;   % optimal solutions
 tmall=[];   % computational times
 tStart = tic;
 
@@ -386,17 +375,16 @@ for lc=1:lcmax
   end
   
   %%% applying regularization term
-  if opts.regterm
-      lmdc = 10e-4;
-      terms = regterm(lmdc,X,Y,X0,Y0,lc);
-      optval = g + terms;
-  else
-      optval = g;
-  end
+%   if opts.regterm
+%       lmdc = 10e-4;
+%       terms = regterm(lmdc,X,Y,X0,Y0,lc);
+%       optval = g + terms;
+%   else
+%       optval = g;
+%   end
   
   %%% optimize by dilated LMI constraits as sufficient conditions of BMI
-  optimize(extLMI,optval,opts.yalmip);
-  % optimize(extLMI,g,opts.yalmip);
+  optimize(extLMI,g+pt*v,opts.yalmip);
   tEnd = toc(tStart);
   
   %%% debug
@@ -426,6 +414,12 @@ for lc=1:lcmax
   if debug
       fprintf('Loop#%03d: %9.4f\n',lc,gg);
   end
+  
+  
+  if ggsav-gg<stoptol
+      break;
+  end
+  ggsav=gg;
   
 end
 
