@@ -1,4 +1,4 @@
-function options = solvebmisettings(varargin)
+function options = solvebmisettings
 %SOLVEBMISETTINGS Create solvebmi option structure (default)
 
 options.yalmip = sdpsettings;
@@ -16,7 +16,7 @@ options.showstep = 1;
 options.dilate = 0;
 
 % regularetion term
-% options.regterm = 0;
+options.regterm = 0;
 % Penalty term factor:
 % - this is not bool; but numeric
 % - if 0, there is no penaty terms

@@ -100,9 +100,9 @@ for i=1:sizeS
     Fstr = S{i};
     
     if isZ
-        [LMIauto,~,gLMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
+        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
     else
-        [LMIauto,~,gLMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'});
+        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'});
     end
     
     
@@ -113,6 +113,7 @@ for i=1:sizeS
     if gLMI.isbmi
         BMImat = LMIauto;
         BMIopt = gLMI;
+        orgBMI = BMI;
     else
         LMIlist = [LMIlist, LMIauto<=-1e-6];
     end
@@ -165,8 +166,10 @@ end
 % Append other LMI
 LMIinit = [LMIinit, LMIlist];
 
-
-
+% Limits gamma upperbound
+if opts.testg
+    LMIinit = [LMIinit, 1e3>=g>=0];
+end
 
 %%% Init val
 % set init val by assign()
@@ -295,7 +298,7 @@ while tt >= 0
   
   
   % loop count upper bound
-  if lc == 300
+  if lc == 200
       break
   end
   
@@ -339,6 +342,7 @@ if ~isequal(pt,0)
     LMI=[LMI,[eye(vn),vm;vm',v]>=0];
 end
 
+
 % init val from upper proccess
 X0 = X0init;
 Y0 = Y0init;
@@ -348,6 +352,23 @@ if isZ
 end
 
 
+%% test
+if opts.test
+    %% Initial feasible solutions
+    % (K=O is a stabilizing static gain)
+    Y0init=zeros(size(Y));
+    %% Calculate initial Lyapunov matrix and H-infinity norm
+    initLMI=replace(orgBMI,Y,Y0init);
+    optimize([initLMI<=0,LMIlist],g,opts.yalmip);
+    X0init=double(X);
+    ggsav=double(g);
+    %%
+    X0 = X0init;
+    Y0 = Y0init;
+end
+
+
+%%
 %%% loop
 if debug
   disp(" ");
@@ -360,7 +381,7 @@ end
 lcmax=opts.lcmax;
 stoptol=opts.stoptol;
 
-ggsav = double(g);
+ggsav=double(g)
 ggall=ggsav;   % optimal solutions
 tmall=[];   % computational times
 tStart = tic;
@@ -375,16 +396,17 @@ for lc=1:lcmax
   end
   
   %%% applying regularization term
-%   if opts.regterm
-%       lmdc = 10e-4;
-%       terms = regterm(lmdc,X,Y,X0,Y0,lc);
-%       optval = g + terms;
-%   else
-%       optval = g;
-%   end
+  if opts.regterm
+      lmdc = 10e-4;
+      terms = regterm(lmdc,X,Y,X0,Y0,lc);
+      optval = g + terms;
+      optimize(extLMI,optval,opts.yalmip);
+  else
+      optimize(extLMI,g+v*pt,opts.yalmip);
+  end
   
   %%% optimize by dilated LMI constraits as sufficient conditions of BMI
-  optimize(extLMI,g+pt*v,opts.yalmip);
+%   optimize(extLMI,g+v*pt,opts.yalmip);
   tEnd = toc(tStart);
   
   %%% debug

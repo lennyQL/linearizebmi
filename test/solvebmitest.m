@@ -8,9 +8,9 @@
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN4');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN9'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN17'); 
-[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3'); 
+% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC7'); 
-% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC17');
+[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC17');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC1');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC2');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC3');
@@ -32,6 +32,20 @@
 % d11=zeros(nz,nw);
 % d12=(1/sqrt(2))*[1, 0; 0, 1];
 % d21=zeros(ny,nw);
+
+
+% nx=5;nu=2;ny=4;
+% a=[0 0 1 0 0;0 -0.154 -0.0042 1.54 0;0 0.249 -1 -5.2 0;
+%    0.0386 -0.996 -0.0003 -0.117 0;0 0.5 0 0 -0.5];
+% b2=[0 0;-0.744 -0.032;0.337 -1.12;0.02 0;0 0];
+% c2=[0 1  0 0 -1;0 0 1 0 0;0 0 0 1 0;1 0 0 0 0];
+% b1=eye(nx); c1=eye(nx);
+% [nx,nw]=size(b1);
+% [nz,nx]=size(c1);
+% d12=[zeros(nz-nu,nu);eye(nu)];  
+% d11=zeros(nz,nw);
+% d21=zeros(ny,nw);
+
 
 
 %% H2/Hinf問題
@@ -177,7 +191,7 @@ yalmipopts.verbose=0;         % 詳細表示
 
 %%% solvebmiのオプション:
 opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
-% opts.lcmax = 200;            % 繰り返し実行する回数
+opts.lcmax = 200;            % 繰り返し実行する回数
 
 
 
@@ -207,10 +221,16 @@ Flist = {Fstr, "-p"};
 % ペナルティ項なし
 opts.dilate = 1;
 opts.penalty= 0;
-% [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
+% opts.regterm=1;
+opts.test = 1;
+opts.testg = 0;
+[gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
 % ペナルティ項あり
 opts.dilate = 1;
 opts.penalty= 1e-2;
+% opts.regterm=0;
+opts.test = 1;
+opts.testg = 0;
 [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 
 
@@ -271,7 +291,8 @@ vars2
 [ggall1,ggall2] = matchSize(output.ggall, output2.ggall);
 ggall = [ggall1; ggall2]';
 figure;
-plot(ggall,'LineWidth',1);
+% plot(ggall,'LineWidth',1);
+semilogy(ggall,'LineWidth',1);
 xlabel('Number of Iteration')
 ylabel('$H_{\infty}$ norm','Interpreter','latex')
 legend('dilated LMI (5)','dilated LMI (7)')

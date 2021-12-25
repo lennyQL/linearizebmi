@@ -62,7 +62,7 @@ LMI=[LMIauto<=0,p>=1e-6];
 % add penalty term
 vm=[vec(p)-vec(p0);vec(k)-vec(k0);vec(G)-vec(G0)];
 vn=size(vm,1);
-% LMI=[LMI,[eye(vn),vm;vm',v]>=0];
+LMI=[LMI,[eye(vn),vm;vm',v]>=0];
 
 
 %%% Overbounding Aprroximation Method
@@ -84,8 +84,8 @@ for lc=1:lcmax
   extLMI=replace(extLMI,k0,k0init);
   extLMI=replace(extLMI,G0,G0init);
 
-%   optimize(extLMI,g+v*pt,opts);
-  optimize(extLMI,g,opts);
+  optimize(extLMI,g+v*pt,opts);
+%   optimize(extLMI,g,opts);
 
   p0init=double(p);
   k0init=double(k);
