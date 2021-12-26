@@ -168,7 +168,7 @@ LMIinit = [LMIinit, LMIlist];
 
 % Limits gamma upperbound
 if opts.testg
-    LMIinit = [LMIinit, 1e3>=g>=0];
+    LMIinit = [LMIinit, 1e2>=g>=0];
 end
 
 %%% Init val
@@ -381,8 +381,10 @@ end
 lcmax=opts.lcmax;
 stoptol=opts.stoptol;
 
+vars.('OBJinit') = double(g);
 ggsav=double(g)
 ggall=ggsav;   % optimal solutions
+% ggall=[];   % optimal solutions
 tmall=[];   % computational times
 tStart = tic;
 
@@ -456,7 +458,7 @@ end
 %% Data of solutions as output
 outopts.ggall = ggall; % original objective function
 outopts.ttall = ttall; % objective function for initial
-outopts.tmall = tmall; % computational time
+outopts.tmall = [0,tmall]; % computational time
 
 % % optimal solution
 % vars.(inputname(3)) = gg; % original objective value
