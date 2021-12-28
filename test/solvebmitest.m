@@ -75,7 +75,7 @@ yalmipopts.verbose=0;         % 詳細表示
 
 %%% solvebmiのオプション:
 opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
-opts.lcmax = 399;            % 繰り返し実行する回数
+opts.lcmax = 999;            % 繰り返し実行する回数
 
 
 
@@ -113,7 +113,7 @@ opts.dilate = 1;
 opts.penalty= 0;
 opts.test = 0;
 opts.testg = 1;
-[gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
+% [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 % ペナルティ項あり
 opts.dilate = 1;
 opts.penalty= 0;
@@ -139,6 +139,12 @@ opts.test = 1;
 opts.testg = 0;
 % [gg6,vars6,output6] = solvebmi(Flist,{'p','k'},g,opts);
 
+opts.dilate = 1;
+opts.penalty= 0;
+opts.test = 0;
+opts.testg = 1;
+[gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
+
 
 
 %%% output
@@ -161,14 +167,15 @@ opts.testg = 0;
 
 % output2.ttall'
 
-gg
-gg2
-
-K1 = vars.k
-K2 = vars2.k
-
-vars
-vars2
+% %
+% gg
+% gg2
+% 
+% K1 = vars.k
+% K2 = vars2.k
+% 
+% vars
+% vars2
 
 
 %%% リアプノフ行列Pの正定値性の確認(固有値すべて正か)
