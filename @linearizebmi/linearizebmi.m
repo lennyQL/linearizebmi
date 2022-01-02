@@ -1083,7 +1083,7 @@ if ~isZ
             l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
         elseif regexp(Rchar(i), "eye")
             l = [char(Gchar) '*(' Ychar '-' Y0char ')'];
-        elseif regexp(Gchar, "eye") & regexp(Rchar(i), "eye")
+        elseif regexp(Gchar, "eye") && regexp(Rchar(i), "eye")
             l = [Ychar '-' Y0char];
         else
             l = [char(Gchar) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
@@ -1102,7 +1102,7 @@ else
             l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
         elseif regexp(Rchar(i), "eye")
             l = [char(Z0char) '*(' Ychar '-' Y0char ')'];
-        elseif regexp(Z0char, "eye") & regexp(Rchar(i), "eye")
+        elseif regexp(Z0char, "eye") && regexp(Rchar(i), "eye")
             l = [Ychar '-' Y0char];
         else
             l = [char(Z0char) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
