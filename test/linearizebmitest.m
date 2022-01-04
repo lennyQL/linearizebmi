@@ -560,7 +560,7 @@ opts.method = 2;
 disp("-- method:3 --")
 G=sdpvar(m2,m2);
 G0=eye(size(G));
-opts.method = 3;
+opts = linearizebmiOptions('method',3);
 [LMIauto, LMIstr] = linearizebmi(Fstr,{'P','K','G'},{'P0','K0','G0'},'',opts)
 
 % method:4
@@ -569,7 +569,7 @@ G=sdpvar(m2,m2,'full');
 G0=eye(size(G));
 M=sdpvar(m2,m2);
 M0=eye(size(M));
-opts.method = 4;
+opts = linearizebmiOptions(opts,'method',4);
 [LMIauto, LMIstr] = linearizebmi(Fstr,{'P','K','G','M'},{'P0','K0','G0','M0'},'',opts)
 
 

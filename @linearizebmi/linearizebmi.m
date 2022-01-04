@@ -15,6 +15,16 @@ function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G, opts)
 %       v0list: 暫定解の文字列
 %           ex) {'P0','K0'}
 %       G: gammaの定数倍，デフォルトで単位行列
+%           ex) 'G'
+%       opts: オプション
+%           ex) opts = linearizebmiOptions;
+%
+%           Method types (opts.method)
+%            - 0: Sebe (2007)
+%            - 1: Sebe (2018)
+%            - 2: Shimomura & Fujii (2005)
+%            - 3: Lee & Hu (2016)
+%            - 4: Ren et al. (2021)
 %
 %
 %   ※ワークスペースの変数の値を利用して計算するので，
@@ -36,9 +46,8 @@ function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G, opts)
 %       ・ベクトル同士の積による行列の記述が可能
 %
 
-% this value should be passed by options
-t=0.99;
 
+%% 関数引数のデータを取得
 
 % 文字列を文字ベクトルに変換
 if isa(S,'string')
