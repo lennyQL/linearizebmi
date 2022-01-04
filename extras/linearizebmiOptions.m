@@ -3,10 +3,12 @@ function opts = linearizebmiOptions(varargin)
 %
 % Syntax
 %      opts = linearizebmiOptions
-%      opts = linearizebmiOptions(Name,Value)
+%      opts = linearizebmiOptions('NAME1',VALUE1,'NAME2',VALUE2,...)
+%      opts = linearizebmiOptions(OLDOPTIONS,'NAME1',VALUE1,'NAME2',VALUE2,...)
 
 
-%% Options
+%% Options (default)
+%  - append default options here if needed!
 
 %%% Constant factor for decomposition matrix
 % Update: G = ^G + dG
@@ -23,6 +25,7 @@ opts.t = 0.99;
 opts.method = 1;
 
 
+
 %% Input checks
 
 % function call without argument
@@ -30,20 +33,33 @@ if nargin == 0
   return;
 end
 
+% input pre options
+namestart = 0;
+if isa(varargin{1},'struct')
+    preopts = varargin{1};
+    namestart = 1;
+    % how to append pre input options?
+    namelist = fieldnames(preopts);
+    for i=1:length(namelist)
+        opts.(namelist{i}) = preopts.(namelist{i});
+    end    
+end
+
 % error check
-if mod(nargin,2)
+if mod(nargin-namestart,2)
   error('odd number of arguments');
 end
 
-for ac=1:2:nargin
+for ac=1+namestart:2:nargin
   if ~isfield(opts,varargin{ac})
     error('field "%s" does not exist in options',varargin{ac});
   end
 end
 
+
 % set option values
-for i=1:nargin/2
-    n = i*2;
+for i=1:(nargin-namestart)/2
+    n = i*2+namestart;
     opts.(varargin{n-1}) = varargin{n};
 end
 
