@@ -1,3 +1,30 @@
+%%% ---------------------------------------------------------- %%%
+% H-infinity control by static output feedback
+% with the overbounding approximation proposed in some research.
+% 
+% Used method (research):
+%     1. Sebe (2007)
+%        - decomposition matrix 'G' is a constant matrix
+%        
+%     2. Sebe (2018)
+%        - decomposition matrix 'G' is a decision matrix
+%        - change parameter 't' in decomposition matrix
+%     
+%     3. Shimomura & Fujii (2005)
+%        - overbounding approximation by 
+%          completing the square with constant matrix
+%     
+%     4. Lee & Hu (2016)
+%        - overbounding approximation by 
+%          completing the square with decision matrix
+%     
+%     5. Ren et al. (2021)
+%        - combining Sebe (2007) and Shimomura & Fujii (2005) 
+%          for decomposition matrix
+%%% ---------------------------------------------------------- %%%
+
+
+
 %%% initialization
 yalmip('clear');
 
@@ -5,9 +32,9 @@ yalmip('clear');
 opts.yalmip=sdpsettings;
 opts.yalmip.verbose=0;
 %
-% opts.yalmip.solver='sedumi';	% SDP solver
+opts.yalmip.solver='sedumi';	% SDP solver
 %
-opts.yalmip.solver='sdpt3';	% SDP solver
+% opts.yalmip.solver='sdpt3';	% SDP solver
 opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.gaptol',1e-8);
 opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.inftol',1e-10);
 opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.steptol',1e-10);

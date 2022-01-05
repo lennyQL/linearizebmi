@@ -1,10 +1,21 @@
+%%% ---------------------------------------------------------- %%%
+% H-infinity control by static output feedback
+% with the overbounding approximation proposed in Sebe (2018).
+% 
+% Additionally,
+%  - append regularization terms to objective function.
+%  - compare with several parameters 't' for decomposition matrix.
+%%% ---------------------------------------------------------- %%%
+
+
+
 %%% SDP solver settings (YALMIP)
 opts=sdpsettings;
 opts.verbose=0;
 %
-% opts.solver='sedumi';	% SDP solver
+opts.solver='sedumi';	% SDP solver
 %
-opts.solver='sdpt3';	% SDP solver
+% opts.solver='sdpt3';	% SDP solver
 opts=sdpsettings(opts,'sdpt3.gaptol',1e-8);
 opts=sdpsettings(opts,'sdpt3.inftol',1e-10);
 opts=sdpsettings(opts,'sdpt3.steptol',1e-10);
@@ -92,8 +103,10 @@ for tc=1:length(tall)
   end
 
   options = linearizebmiOptions('t',t,'method',1);
-  % options.t=t;
-  % options.method=1;
+  % or:
+  % options = linearizebmiOptions;
+  % options.t = t;
+  % options.method = 1;
   [LMIauto,LMIstr,~,orgBMI]...
       =linearizebmi(Fstr,{'p','k','G'},{'p0','k0','G0'},'',options);
 
