@@ -58,21 +58,18 @@ opts.method1.t=0;
 
 stoptol=5e-7;		% stop tolerance
 lcmax=2e2;		% maximum step numbers
-regfac=1e-3;		% regularization factor in optimization
+regfac=1e-4;		% regularization factor in optimization
 
 
 %%% Define problem (from COMPleib)
 %probids={'AC3','AC6','AC15','AC16','AC17',...
-%         'HE2','DIS1','DIS3','TG1','AGS','WEC2','WEC3',...
-%         'MFP','UWV','PSM','NN4','NN8','NN11'};
-%probid='NN4'; % 'AGS','MFP'
+%         'AGS','DIS1','DIS3','HE2','MFP',...
+%         'NN4','NN8','NN11','PSM','TG1',...
+%         'UWV','WEC2','WEC3'};
 %
-probid='NN4';
+probid='MFP';
 [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib(probid);
 
-% DIS1: CS 系の方が良さそう
-% DIS3: optimal への収束がばらつく
-% TG1: CS 系の方が良さそう
 
 
 %% Definitions of decision matrices
@@ -232,7 +229,7 @@ for tc=1:6
     end
 
     sol=optimize(extLMI,g+v*regfac,opts.yalmip);
-    sol
+    % sol
 
     p0init=double(p);
     k0init=double(k);
@@ -240,10 +237,10 @@ for tc=1:6
       case {0,2}
         ;
       case {1,3}
-        G0init=double(G)
+        G0init=double(G);
       case 4
-        G0init=double(G)
-        M0init=double(M)
+        G0init=double(G);
+        M0init=double(M);
       otherwise
         ;
     end

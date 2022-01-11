@@ -14,7 +14,8 @@ function opts = linearizebmiOptions(varargin)
 % Update: G = ^G + dG
 %  ^G = t * G_{n-1}
 %   H = (1-t) * G_{n-1}
-opts.t = 0.99;
+%opts.t = 0.99;
+opts.t = 0;
 
 %%% Method type
 % 0: Sebe (2007)

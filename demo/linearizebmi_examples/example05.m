@@ -27,33 +27,19 @@ opts=sdpsettings(opts,'sdpt3.stoplevel',0);	% changed from default
 opts=sdpsettings(opts,'sdpt3.printyes',0);
 
 stoptol=5e-7;		% stop tolerance
-lcmax=1e4;		% maximum step numbers
-regfac=1e-3;		% regularization factor in optimization
+lcmax=2e2;		% maximum step numbers
+regfac=1e-4;		% regularization factor in optimization
 
 
 %%% Define problem (from COMPleib)
-probid='WEC2'
+%probids={'AC3','AC6','AC15','AC16','AC17',...
+%         'AGS','DIS1','DIS3','HE2','MFP',...
+%         'NN4','NN8','NN11','PSM','TG1',...
+%         'UWV','WEC2','WEC3'};
+%
+probid='MFP';
 [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib(probid);
-% default example is 'HE1'
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('AC3');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('AC15');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('DIS1');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('AC6');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('AC16');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('AC17');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('HE2'); % ○
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('DIS3'); % ○
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('TG1'); % ○
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('AGS'); % ○ すぐに収束
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('WEC2');
 
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('WEC3');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('MEP');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('UWV');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('PSM');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('NN4');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('NN8');
-%[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib('NN11');
 
 %% Definitions of decision matrices
 % Define decision matrices
@@ -145,11 +131,11 @@ for tc=1:length(tall)
     end
 
     sol=optimize(extLMI,g+v*regfac,opts);
-    sol
+    % sol
 
     p0init=double(p);
     k0init=double(k);
-    G0init=double(G)
+    G0init=double(G);
 
     % Print out achieved optimal value
     gg=double(g);
