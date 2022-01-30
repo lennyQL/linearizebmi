@@ -1,7 +1,7 @@
 %%% 問題の定義
 % 制御対象データの定義
 %%% 制御対象の係数行列，次元をインポート
-% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); 
+[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE1'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE2');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE3');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('HE4'); 
@@ -10,10 +10,11 @@
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('NN17'); 
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC3');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC7'); 
-[a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC17');
+% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('AC17');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC1');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC2');
 % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('WEC3');
+% % [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny] = COMPleib('MFP');
 
 
 % a=[-0.0366,  0.0271,  0.0188, -0.4555;...
@@ -75,7 +76,7 @@ yalmipopts.verbose=0;         % 詳細表示
 
 %%% solvebmiのオプション:
 opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
-opts.lcmax = 999;            % 繰り返し実行する回数
+opts.lcmax = 1e4;            % 繰り返し実行する回数
 
 
 
@@ -131,7 +132,7 @@ opts.dilate = 1;
 opts.penalty= 1e-2;
 opts.test = 0;
 opts.testg = 1;
-[gg5,vars5,output5] = solvebmi(Flist,{'p','k'},g,opts);
+% [gg5,vars5,output5] = solvebmi(Flist,{'p','k'},g,opts);
 % ペナルティ項あり
 opts.dilate = 1;
 opts.penalty= 1e-2;
@@ -139,11 +140,30 @@ opts.test = 1;
 opts.testg = 0;
 % [gg6,vars6,output6] = solvebmi(Flist,{'p','k'},g,opts);
 
-opts.dilate = 1;
+%%%
+opts.dilate = 0;
 opts.penalty= 0;
 opts.test = 0;
 opts.testg = 1;
 [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
+%
+opts.dilate = 1;
+opts.penalty= 0;
+opts.test = 0;
+opts.testg = 1;
+[gg3,vars3,output3] = solvebmi(Flist,{'p','k'},g,opts);
+%
+opts.dilate = 1;
+opts.penalty= 1e-2;
+opts.test = 0;
+opts.testg = 0;
+% [gg5,vars5,output5] = solvebmi(Flist,{'p','k'},g,opts);
+%
+opts.dilate = 1;
+opts.penalty= 1e-4;
+opts.test = 0;
+opts.testg = 1;
+[gg6,vars6,output6] = solvebmi(Flist,{'p','k'},g,opts);
 
 
 
@@ -194,15 +214,17 @@ opts.testg = 1;
 %%% 達成値の更新過程の表示
 % ggall = shapePlotData(output.ggall,output2.ggall,output3.ggall,output4.ggall,output5.ggall,output6.ggall)
 % ggall = shapePlotData(output2.ggall,output3.ggall,output5.ggall,output6.ggall)
-ggall = shapePlotData(output2.ggall,output5.ggall)
+ggall = shapePlotData(output2.ggall,output3.ggall,output6.ggall)
+% ggall = shapePlotData(output2.ggall,output3.ggall)
 figure;
-% plot(ggall,'LineWidth',1);
+% plot(ggall,'LineWidth',1.5);
 semilogy(ggall,'LineWidth',1.5);
 xlabel('Number of Iteration')
 ylabel('$H_{\infty}$ norm','Interpreter','latex')
-% legend('None    : Alpha','None    : K0','Penalty : Alpha','Penalty : K0')
-legend('None','Penalty')
-ylim([4 1e2])
+% legend('Sebe(2007)','Sebe(2018)')
+legend('Sebe(2007)','Sebe(2018)','Sebe(2018) : penalty')
+% legend('None','Penalty')
+% ylim([4 1e2])
 grid on
 
 % figure;
@@ -210,23 +232,27 @@ grid on
 
 
 %%% 時間経過
-% tmall = shapePlotData(output2.tmall,output3.tmall,output5.tmall,output6.tmall)
+% tmall = shapePlotData(output2.tmall,output3.tmall)
+% % tmall = shapePlotData(output2.tmall,output3.tmall,output5.tmall,output6.tmall)
 % figure;
-% plot(tmall,ggall,'LineWidth',1.5);
+% % plot(tmall,ggall,'LineWidth',1.5);
+% semilogy(tmall,ggall,'LineWidth',1.5);
 % xlabel('Computational Time')
 % ylabel('$H_{\infty}$ norm','Interpreter','latex')
-% legend('None    : Alpha','None    : K0','Penalty : Alpha','Penalty : K0')
+% legend('Sebe(2007)','Sebe(2018)')
+% % legend('None    : Alpha','None    : K0','Penalty : Alpha','Penalty : K0')
 % grid on
 
 
 %%% alphaの最適化過程表示
-% [ttall1,ttall2] = matchSize(output.ttall, output2.ttall);
-% ttall = [ttall1; ttall2]';
+% % ttall = shapePlotData(output2.ttall,output3.ttall)
+% ttall = shapePlotData(output2.ttall,output3.ttall,output6.ttall)
 % figure;
-% plot(ttall,'LineWidth',1);
+% plot(ttall,'LineWidth',1.5);
 % xlabel('Number of Iteration')
 % ylabel('$\alpha$','Interpreter','latex')
-% legend('dilated LMI (5)','dilated LMI (7)')
+% legend('Sebe(2007)','Sebe(2018)','Sebe(2018) : penalty')
+% % legend('Sebe(2007)','Sebe(2018)')
 % xticks(0:1:200)
 % grid on
 

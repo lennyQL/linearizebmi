@@ -222,10 +222,12 @@ switch opts.method
         end
         % 対称性チェック
         % Z: full
-        if is(Z,'symmetric')
-            error("'%s' must be 'full' type sdpvar (method:1)", Zstr)
-        elseif isequal(class(Z0),'sdpvar') && is(Z0,'symmetric')
-            error("'%s' must be 'full' type sdpvar (method:1)", Z0str)
+        if ~is(Z,'scalar') 
+            if is(Z,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:1)", Zstr)
+            elseif isequal(class(Z0),'sdpvar') && is(Z0,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:1)", Z0str)
+            end
         end
         
     
@@ -248,10 +250,12 @@ switch opts.method
         end
         % 対称性チェック
         % Z: symmetric
-        if ~is(Z,'symmetric')
-            error("'%s' must be 'symmetric' type sdpvar (method:3)", Zstr)
-        elseif isequal(class(Z0),'sdpvar') && ~is(Z0,'symmetric')
-            error("'%s' must be 'symmetric' type sdpvar (method:3)", Z0str)
+        if ~is(Z,'scalar') 
+            if ~is(Z,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:3)", Zstr)
+            elseif isequal(class(Z0),'sdpvar') && ~is(Z0,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:3)", Z0str)
+            end
         end
     
     case 4
@@ -262,15 +266,19 @@ switch opts.method
         % 対称性チェック
         % Z: full
         % M: symmetric
-        if is(Z,'symmetric')
-            error("'%s' must be 'full' type sdpvar (method:4)", Zstr)
-        elseif isequal(class(Z0),'sdpvar') && is(Z0,'symmetric')
-            error("'%s' must be 'full' type sdpvar (method:4)", Z0str)
+        if ~is(Z,'scalar') 
+            if is(Z,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:4)", Zstr)
+            elseif isequal(class(Z0),'sdpvar') && is(Z0,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:4)", Z0str)
+            end
         end
-        if ~is(M,'symmetric')
-            error("'%s' must be 'symmetric' type sdpvar (method:4)", Mstr)
-        elseif isequal(class(M0),'sdpvar') && ~is(M0,'symmetric')
-            error("'%s' must be 'symmetric' type sdpvar (method:4)", M0str)
+        if ~is(M,'scalar') 
+            if ~is(M,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:4)", Mstr)
+            elseif isequal(class(M0),'sdpvar') && ~is(M0,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:4)", M0str)
+            end
         end
     
     otherwise

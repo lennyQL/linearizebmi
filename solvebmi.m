@@ -61,9 +61,9 @@ end
 
 % construct or get Z
 isZ = opts.dilate; % checker existence of Z
-Z = sdpvar(sizeY(1),sizeY(1));
+Z = sdpvar(sizeY(1),sizeY(1),'full');
 sizeZ = size(Z);
-Z0dummy = sdpvar(sizeZ(1),sizeZ(2));
+Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
 
 
 % debug stdout flag
@@ -100,6 +100,7 @@ for i=1:sizeS
     Fstr = S{i};
     
     if isZ
+%         Z,is(Z,'scalar')
         [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
     else
         [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'});
@@ -383,8 +384,8 @@ stoptol=opts.stoptol;
 
 vars.('OBJinit') = double(g);
 ggsav=double(g)
-ggall=ggsav;   % optimal solutions
-% ggall=[];   % optimal solutions
+% ggall=ggsav;   % optimal solutions
+ggall=[];   % optimal solutions
 tmall=[];   % computational times
 tStart = tic;
 
@@ -458,7 +459,8 @@ end
 %% Data of solutions as output
 outopts.ggall = ggall; % original objective function
 outopts.ttall = ttall; % objective function for initial
-outopts.tmall = [0,tmall]; % computational time
+% outopts.tmall = [0,tmall]; % computational time
+outopts.tmall = tmall;
 
 % % optimal solution
 % vars.(inputname(3)) = gg; % original objective value

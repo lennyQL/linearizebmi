@@ -442,15 +442,22 @@ disp(newline)
 disp("###*** パターン ***###")
 disp("# デフォルト")
 
-X0=sdpvar(n,n);
-Y0=sdpvar(m2,p2, 'full');
+[A,B1,B2,C1,C2,D11,D12,D21,nx,nw,nu,nz,ny] = COMPleib('HE1');
+
+X=sdpvar(nx,nx);
+Y=sdpvar(nu,ny, 'full');
+X0=zeros(nx,nx);
+Y0=zeros(nu,ny);
+G=sdpvar(nz,nz,'full');
+G0=eye(size(G));
 
 Fstr = "[X*(A+B2*Y*C2)+(A+B2*Y*C2)'*X'  X*(B1+B2*Y*D21)     (C1+D12*Y*C2)';"+...
-        "(B1+B2*Y*D21)'*X'               -eye(p1)           (D11+D12*Y*D21)';"+...
-        "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(p1)]";
+        "(B1+B2*Y*D21)'*X'               -eye(nz)           (D11+D12*Y*D21)';"+...
+        "C1+D12*Y*C2                     D11+D12*Y*D21       -eye(nz)]";
 
-% LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
-[LMIauto, LMIstr, out] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'},'G')
+LMIauto = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
+LMIauto = linearizebmi(Fstr,{'X','Y','G'},{'X0','Y0','G0'})
+% [LMIauto, LMIstr, out] = linearizebmi(Fstr,{'X','Y'},{'X0','Y0'})
 
 %% そもそもLMIの場合
 disp(newline)
