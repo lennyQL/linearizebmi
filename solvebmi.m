@@ -442,7 +442,7 @@ for lc=1:lcmax
   
   
   if ggsav-gg<stoptol
-      break;
+%       break;
   end
   ggsav=gg;
   

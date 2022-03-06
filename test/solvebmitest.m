@@ -76,7 +76,7 @@ yalmipopts.verbose=0;         % 詳細表示
 
 %%% solvebmiのオプション:
 opts.yalmip = yalmipopts;   % yalmipのoptimizeのためのオプション
-opts.lcmax = 1e4;            % 繰り返し実行する回数
+opts.lcmax = 200;            % 繰り返し実行する回数
 
 
 
@@ -163,7 +163,7 @@ opts.dilate = 1;
 opts.penalty= 1e-4;
 opts.test = 0;
 opts.testg = 1;
-[gg6,vars6,output6] = solvebmi(Flist,{'p','k'},g,opts);
+% [gg6,vars6,output6] = solvebmi(Flist,{'p','k'},g,opts);
 
 
 
@@ -214,8 +214,8 @@ opts.testg = 1;
 %%% 達成値の更新過程の表示
 % ggall = shapePlotData(output.ggall,output2.ggall,output3.ggall,output4.ggall,output5.ggall,output6.ggall)
 % ggall = shapePlotData(output2.ggall,output3.ggall,output5.ggall,output6.ggall)
-ggall = shapePlotData(output2.ggall,output3.ggall,output6.ggall)
-% ggall = shapePlotData(output2.ggall,output3.ggall)
+% ggall = shapePlotData(output2.ggall,output3.ggall,output6.ggall)
+ggall = shapePlotData(output2.ggall,output3.ggall)
 figure;
 % plot(ggall,'LineWidth',1.5);
 semilogy(ggall,'LineWidth',1.5);
@@ -245,16 +245,16 @@ grid on
 
 
 %%% alphaの最適化過程表示
-% % ttall = shapePlotData(output2.ttall,output3.ttall)
+ttall = shapePlotData(output2.ttall,output3.ttall)
 % ttall = shapePlotData(output2.ttall,output3.ttall,output6.ttall)
-% figure;
-% plot(ttall,'LineWidth',1.5);
-% xlabel('Number of Iteration')
-% ylabel('$\alpha$','Interpreter','latex')
-% legend('Sebe(2007)','Sebe(2018)','Sebe(2018) : penalty')
-% % legend('Sebe(2007)','Sebe(2018)')
-% xticks(0:1:200)
-% grid on
+figure;
+plot(ttall,'LineWidth',1.5);
+xlabel('Number of Iteration')
+ylabel('$\alpha$','Interpreter','latex')
+legend('Sebe(2007)','Sebe(2018)','Sebe(2018) : penalty')
+% legend('Sebe(2007)','Sebe(2018)')
+xticks(0:1:200)
+grid on
 
 
 
