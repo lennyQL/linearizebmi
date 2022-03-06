@@ -21,7 +21,7 @@ opts.showstep = 1;
 %%% dilation types
 % - false: decomposition matrix is constant (2x2 blocks LMI)
 % - true:  decomposition matrix is decision value (3x3 blocks LMI)
-opts.dilate = 0;
+opts.method = 0;
 
 %%% regularetion term
 opts.regterm = 0;
@@ -30,6 +30,10 @@ opts.regterm = 0;
 % - if 0, there is no penaty terms
 opts.penalty = 0;
 
+%%% test
+%%% *Do not turn on these options unless you are maitner of this code.*
+opts.test = 0;
+opts.testg = 0;
 
 
 %% Input checks

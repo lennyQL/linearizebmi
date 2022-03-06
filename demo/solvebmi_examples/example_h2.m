@@ -48,8 +48,9 @@ yalmipopts.solver='sedumi';	% SDP solver
 yalmipopts.verbose=0;       % No details
 
 %%% solvebmi options:
-opts.yalmip = yalmipopts;   % yalmip options
-opts.lcmax = 200;           % Maximum step times
+opts = solvebmiOptions;
+opts = solvebmiOptions(opts,'yalmip',yalmipopts);   % yalmip options
+opts = solvebmiOptions(opts,'lcmax',200);            % Maximum step times
 % opts.penalty=1e-2;
 
 %%% BMI as a string
@@ -72,12 +73,12 @@ Flist = {Fstr1, Fstr2, Fstr3};
 
 % (Type 1) Decomposition matrix G is a constant matrix
 % :Solve speed is fast
-opts.dilate = 0;
+opts = solvebmiOptions(opts,'method',0);
 [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
 
 % (Type 2) Decomposition matrix G is a decision matrix
 % :Converges quickly
-opts.dilate = 1;
+opts = solvebmiOptions(opts,'method',1);
 [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 
 
@@ -107,8 +108,7 @@ grid on
 
 %%% Figure process about optimizing "alpha" 
 %%% for searching initial feasible solutions
-[ttall1,ttall2] = matchSize(output.ttall, output2.ttall);
-ttall = [ttall1; ttall2]';
+ttall = shapePlotData(output.ttall, output2.ttall);
 figure;
 plot(ttall,'LineWidth',2);
 xlabel('Number of Iteration')

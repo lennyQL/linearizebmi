@@ -60,7 +60,14 @@ end
 
 
 % construct or get Z
-isZ = opts.dilate; % checker existence of Z
+switch opts.method % checker existence of Z
+    case {0,2}
+        isZ = 0;
+    case {1,3,4}
+        isZ = 1;
+    otherwise
+        error('not supported method');
+end
 Z = sdpvar(sizeY(1),sizeY(1),'full');
 sizeZ = size(Z);
 Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
@@ -96,14 +103,17 @@ end
 LMIlist = [];        % constraints
 sdpvarnamelist = []; % varnames
 
+% linearizebmi options
+lopts = linearizebmiOptions('method',opts.method);
+
 for i=1:sizeS
     Fstr = S{i};
     
     if isZ
 %         Z,is(Z,'scalar')
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'});
+        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'},'',lopts);
     else
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'});
+        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'},'',lopts);
     end
     
     
