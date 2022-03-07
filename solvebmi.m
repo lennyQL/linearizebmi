@@ -10,9 +10,11 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 %             (ex:
 %                 opt = sdpsetting
 %                 opt.solver = 'sedumi'
+%                 opts = solvebmiOptions
 %                 opts.yalmip = opt
 %                 opts.lcmax = 200
-%                 opts.dilate = 1
+%                 opts.method = 1
+%                 opts.penalty = 0
 %             )
 % 
 %  output:
@@ -55,7 +57,7 @@ Y0dummy = sdpvar(sizeY(1),sizeY(2));
 %%% setup default option if not determind
 % if not opts input
 if nargin == 3
-    opts = solvebmisettings;
+    opts = solvebmiOptions;
 end
 
 
@@ -279,7 +281,7 @@ if debug
   disp("start")
 end
 
-ttall=[];   % optimal solutions
+ttall = tt;   % optimal solutions
 lc = 0;
 while tt >= 0
   lc=lc+1;
@@ -340,21 +342,44 @@ end
 % Append other LMI
 LMI = [LMI, LMIlist];
 
-% Add penalty term
-v = sdpvar;
+
+%%% Add regularization term
+v = sdpvar(1,1);
 pt = opts.penalty;
 if ~isequal(pt,0)
-    if isZ
-        vm=[vec(X)-vec(X0dummy);vec(Y)-vec(Y0dummy);vec(Z)-vec(Z0dummy)];
+    [vxr,vxc]=size(X,1);
+    vx =sdpvar(vxr,vxr,'symmetric');
+    if issymmetric(X)
+      LMI=[LMI,[vx,triu(X-X0dummy);triu(X-X0dummy)',eye(vxc)]>=0];
     else
-        vm=[vec(X)-vec(X0dummy);vec(Y)-vec(Y0dummy)];
+      LMI=[LMI,[vx,X-X0dummy;(X-X0dummy)',eye(vxc)]>=0];
     end
-    vn=size(vm,1);
-    LMI=[LMI,[eye(vn),vm;vm',v]>=0];
+
+    [vyr,vyc]=size(Y,1);
+    vy =sdpvar(vyr,vyr,'symmetric');
+    if issymmetric(Y)
+      LMI=[LMI,[vy,triu(Y-Y0dummy);triu(Y-Y0dummy)',eye(vyc)]>=0];
+    else
+      LMI=[LMI,[vy,Y-Y0dummy;(Y-Y0dummy)',eye(vyc)]>=0];
+    end
+
+    if isZ
+      [vzr,vzc]=size(Z,1);
+      vz =sdpvar(vzr,vzr,'symmetric');
+      if issymmetric(Z)
+        LMI=[LMI,[vz,triu(Z-Z0dummy);triu(Z-Z0dummy)',eye(vzc)]>=0];
+      else
+        LMI=[LMI,[vz,Z-Z0dummy;(Z-Z0dummy)',eye(vzc)]>=0];
+      end
+
+      LMI=[LMI,v>=trace(vx)+trace(vy)+trace(vz)];
+    else
+      LMI=[LMI,v>=trace(vx)+trace(vy)];
+    end
 end
 
 
-% init val from upper proccess
+% init val from upper process
 X0 = X0init;
 Y0 = Y0init;
 if isZ
@@ -363,17 +388,17 @@ if isZ
 end
 
 
-%% test
+%%% test
 if opts.test
-    %% Initial feasible solutions
+    %%% Initial feasible solutions
     % (K=O is a stabilizing static gain)
     Y0init=zeros(size(Y));
-    %% Calculate initial Lyapunov matrix and H-infinity norm
+    %%% Calculate initial Lyapunov matrix and H-infinity norm
     initLMI=replace(orgBMI,Y,Y0init);
     optimize([initLMI<=0,LMIlist],g,opts.yalmip);
     X0init=double(X);
     ggsav=double(g);
-    %%
+    %%%
     X0 = X0init;
     Y0 = Y0init;
 end
@@ -394,9 +419,8 @@ stoptol=opts.stoptol;
 
 vars.('OBJinit') = double(g);
 ggsav=double(g)
-% ggall=ggsav;   % optimal solutions
-ggall=[];   % optimal solutions
-tmall=[];   % computational times
+ggall=ggsav;    % optimal solutions
+tmall=0;       % computational times
 tStart = tic;
 
 for lc=1:lcmax
