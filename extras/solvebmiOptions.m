@@ -9,14 +9,20 @@ function opts = solvebmiOptions(varargin)
 %% Options (default)
 %  - append default options here if needed!
 
+% option for YALMIP
+% This option is passed to the optimize() in YALMIP.
 opts.yalmip = sdpsettings;
-% options.sdpsettings = sdpsettings;
 
+% maximum iteration number
 opts.lcmax = 2e2;
 
+% stop tolerance.
+% terminate if the update of objective function is less that this threshold
 opts.stoptol = 5e-7;
 
+% flag for debug. Display debug messages.
 opts.showstep = 1;
+
 
 %%% dilation types
 % - false: decomposition matrix is constant (2x2 blocks LMI)
@@ -24,11 +30,15 @@ opts.showstep = 1;
 opts.method = 0;
 
 %%% regularetion term
+% use variable regularization term
 opts.regterm = 0;
-%%% Penalty term factor:
+
+%%% Regularization term factor:
+% use constant regularization term
 % - this is not bool; but numeric
-% - if 0, there is no penaty terms
-opts.penalty = 0;
+% - if 0, there are no penaty terms
+opts.penalty = 1e-6;
+
 
 %%% test
 %%% *Do not turn on these options unless you are maitner of this code.*

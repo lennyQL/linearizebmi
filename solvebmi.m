@@ -343,11 +343,11 @@ end
 LMI = [LMI, LMIlist];
 
 
-%%% Add regularization term
+% Add regularization term
 v = sdpvar(1,1);
 pt = opts.penalty;
-if ~isequal(pt,0)
-    [vxr,vxc]=size(X,1);
+if ~isequal(pt,0) && ~opts.regterm
+    [vxr,vxc]=size(X);
     vx =sdpvar(vxr,vxr,'symmetric');
     if issymmetric(X)
       LMI=[LMI,[vx,triu(X-X0dummy);triu(X-X0dummy)',eye(vxc)]>=0];
@@ -355,7 +355,7 @@ if ~isequal(pt,0)
       LMI=[LMI,[vx,X-X0dummy;(X-X0dummy)',eye(vxc)]>=0];
     end
 
-    [vyr,vyc]=size(Y,1);
+    [vyr,vyc]=size(Y);
     vy =sdpvar(vyr,vyr,'symmetric');
     if issymmetric(Y)
       LMI=[LMI,[vy,triu(Y-Y0dummy);triu(Y-Y0dummy)',eye(vyc)]>=0];
@@ -364,7 +364,7 @@ if ~isequal(pt,0)
     end
 
     if isZ
-      [vzr,vzc]=size(Z,1);
+      [vzr,vzc]=size(Z);
       vz =sdpvar(vzr,vzr,'symmetric');
       if issymmetric(Z)
         LMI=[LMI,[vz,triu(Z-Z0dummy);triu(Z-Z0dummy)',eye(vzc)]>=0];
@@ -419,8 +419,10 @@ stoptol=opts.stoptol;
 
 vars.('OBJinit') = double(g);
 ggsav=double(g)
-ggall=ggsav;    % optimal solutions
+
+ggall=ggsav;   % optimal solutions
 tmall=0;       % computational times
+
 tStart = tic;
 
 for lc=1:lcmax
@@ -433,8 +435,8 @@ for lc=1:lcmax
   end
   
   %%% applying regularization term
-  if opts.regterm
-      lmdc = 10e-4;
+  if opts.regterm && opts.penalty>0
+      lmdc = opts.penalty;
       terms = regterm(lmdc,X,Y,X0,Y0,lc);
       optval = g + terms;
       optimize(extLMI,optval,opts.yalmip);
@@ -476,7 +478,8 @@ for lc=1:lcmax
   
   
   if ggsav-gg<stoptol
-%       break;
+      ggsav=gg;
+      break;
   end
   ggsav=gg;
   

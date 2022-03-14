@@ -63,10 +63,14 @@ Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
 LMI=[LMIauto<=0,p>=1e-6];
 
 % add penalty term
-vm=[vec(p)-vec(p0);vec(k)-vec(k0);g-g0];
-vn=size(vm,1);
-LMI=[LMI,[eye(vn),vm;vm',v]>=0];
+vp=sdpvar(nx,nx,'symmetric');
+LMI=[LMI,[vp,triu(p-p0);triu(p-p0)',eye(nx)]>=0];
+vk=sdpvar(nu,nu,'symmetric');
+LMI=[LMI,[vk,k-k0;(k-k0)',eye(ny)]>=0];
+vg=sdpvar(1,1);
+LMI=[LMI,[vg,g-g0;g-g0,1]>=0];
 
+LMI=[LMI,v>=trace(vp)+trace(vk)+vg];
 
 %%% Overbounding Aprroximation Method
 %% Initial feasible solutions

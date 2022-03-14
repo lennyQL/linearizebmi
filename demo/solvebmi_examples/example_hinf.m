@@ -49,7 +49,8 @@ yalmipopts.verbose=0;       % No details
 opts = solvebmiOptions;
 opts.yalmip = yalmipopts;   % yalmip options
 opts.lcmax = 200;           % Maximum step times
-opts.regterm = 1;           % Use reguralation terms
+opts.regterm = 1;           % Use variable reguralation term
+opts.penalty = 1e-5;        % Use constant reguralization term
 
 
 %%% BMI as a string
@@ -92,25 +93,32 @@ K2 = vars2.k
 % vars2
 
 
-%%% Figure achieved value g
-ggall = [output.ggall; output2.ggall]';
-figure;
-plot(ggall,'LineWidth',2);
-xlabel('Number of Iteration')
-ylabel('$H_{\infty}$ norm','Interpreter','latex')
-legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)')
-grid on
-
-
 %%% Figure process about optimizing "alpha" 
 %%% for searching initial feasible solutions
-ttall = shapePlotData(output.ttall, output2.ttall);
+%ttall = shapePlotData(output.ttall, output2.ttall);
 figure;
-plot(ttall,'LineWidth',2);
+plot(0:length(output.ttall)-1,output.ttall,'LineWidth',2);
+hold on;
+plot(0:length(output2.ttall)-1,output2.ttall,'LineWidth',2);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)')
 xticks(0:1:200)
-grid on
+grid on;
+hold off;
+
+
+%%% Figure achieved value g
+%ggall = [output.ggall; output2.ggall]';
+figure;
+plot(0:length(output.ggall)-1,output.ggall,'LineWidth',2);
+hold on;
+plot(0:length(output2.ggall)-1,output2.ggall,'LineWidth',2);
+ylim([0,18]);
+xlabel('Number of Iteration');
+ylabel('$H_{\infty}$ norm','Interpreter','latex');
+legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)');
+grid on;
+hold off;
 
 
