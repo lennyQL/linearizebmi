@@ -28,9 +28,10 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 
 %% get input value
 % input as char
+length(vlist)
 try
-    Xstr =char(vlist{1});
-    Ystr =char(vlist{2});
+    Xstr =char(vlist{1})
+    Ystr =char(vlist{2})
 %     X0str=char(v0list{1});
 %     Y0str=char(v0list{2});
 catch 
