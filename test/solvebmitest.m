@@ -67,7 +67,7 @@ assign(k,zeros(nu,ny))
 assign(g,0)
 
 %%% デフォルトオプション
-opts = solvebmisettings;
+opts = solvebmiOptions;
 
 %%% SDP solver の設定
 yalmipopts=sdpsettings;
@@ -518,6 +518,7 @@ Flist = {Fstr1, Fstr2, Fstr3, Fstr4,"-p2","-pinf"};
 %%% 関数仕様test
 opts.method = 0;
 opts.regterm= 0;
+% solvebmi(Flist,{{'p2','k'},{'pinf','k'},{'pinf','k'}},g,opts);
 % [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
 [gg,vars,output] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},g,opts);
 % ペナルティ項あり

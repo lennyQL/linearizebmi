@@ -28,31 +28,57 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 
 %% get input value
 % input as char
-length(vlist)
-try
-    Xstr =char(vlist{1})
-    Ystr =char(vlist{2})
-%     X0str=char(v0list{1});
-%     Y0str=char(v0list{2});
-catch 
-    error('varargin{2} must be the char list');
+
+% (vlen): Number of decision variables set (Number of input BMIs)
+for i=1:length(vlist)
+    if length(vlist{i}) == 1
+        vlen = 1;
+    else
+        vlen = length(vlist);
+    end
 end
 
+if vlen == 1
+    vlist = {vlist};
+end
 
-% determinate value
-X = evalin('caller', Xstr);
-Y = evalin('caller', Ystr);
-% presolve value (init value)
-% X0 = evalin('base', X0str);
-% Y0 = evalin('base', Y0str);
-
-% get value size
-sizeX = size(X);
-sizeY = size(Y);
-
-% presolve value(dummy)
-X0dummy = sdpvar(sizeX(1),sizeX(2));
-Y0dummy = sdpvar(sizeY(1),sizeY(2));
+% (vstruct): Info about decision variables set
+% !TODO: vstruct need to be a class
+for i=1:vlen
+    % var str
+    try
+        Xstr = char(vlist{i}{1});
+        Ystr = char(vlist{i}{2});
+    catch 
+        error('varargin{2} must be the char list');
+    end
+    vstruct(i).Xstr = Xstr;
+    vstruct(i).Ystr = Ystr;
+    % determinate value data
+    X = evalin('caller', Xstr);
+    Y = evalin('caller', Ystr);
+    vstruct(i).X = X;
+    vstruct(i).Y = Y;
+    % get value size
+    sizeX = size(X);
+    sizeY = size(Y);
+    vstruct(i).sizeX = sizeX;
+    vstruct(i).sizeY = sizeY;
+    % presolve value(dummy)
+    X0dummy = sdpvar(sizeX(1),sizeX(2));
+    Y0dummy = sdpvar(sizeY(1),sizeY(2));
+    vstruct(i).X0dummy = X0dummy;
+    vstruct(i).Y0dummy = Y0dummy;
+    % info about Z
+    Z = sdpvar(sizeY(1),sizeY(1),'full');
+    sizeZ = size(Z);
+    Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
+    vstruct(i).Z = Z;
+    vstruct(i).sizeZ = sizeZ;
+    vstruct(i).Z0dummy = Z0dummy;
+end
+% vstruct(1)
+% vstruct(2)
 
 
 %%% setup default option if not determind
@@ -71,9 +97,6 @@ switch opts.method % checker existence of Z
     otherwise
         error('not supported method');
 end
-Z = sdpvar(sizeY(1),sizeY(1),'full');
-sizeZ = size(Z);
-Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
 
 
 % debug stdout flag
@@ -83,15 +106,8 @@ debug = opts.showstep;
 g = optg;
 
 %% linearize bmi
-% if nargin == 4
-%     % using G
-%     LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'}, G);
-% elseif nargin == 3
-%     % no G as input
-%     LMIauto = linearizebmi(S, vlist, {'X0dummy','Y0dummy'});
-% end
 
-% define S size
+% define S size (length of input constraints)
 % class(S)
 if isequal(class(S),'cell')
     sizeS = length(S);
@@ -109,14 +125,30 @@ sdpvarnamelist = []; % varnames
 % linearizebmi options
 lopts = linearizebmiOptions('method',opts.method);
 
+vstep = 1;  % step of vstruct(corresponding to BMI)
+bminum = 0; % number of BMIs
 for i=1:sizeS
     Fstr = S{i};
     
+    Xstr = vstruct(vstep).Xstr;
+    Ystr = vstruct(vstep).Ystr;
+    Z = vstruct(vstep).Z;
+    X0dummy = vstruct(vstep).X0dummy;
+    Y0dummy = vstruct(vstep).Y0dummy;
+    Z0dummy = vstruct(vstep).Z0dummy;
+    
+    
     if isZ
 %         Z,is(Z,'scalar')
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, {Xstr,Ystr,'Z'}, {'X0dummy','Y0dummy','Z0dummy'},'',lopts);
+        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                            {Xstr,Ystr,'Z'},...
+                                            {'X0dummy','Y0dummy','Z0dummy'},...
+                                            '',lopts);
     else
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr, vlist, {'X0dummy','Y0dummy'},'',lopts);
+        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                            {Xstr,Ystr},...
+                                            {'X0dummy','Y0dummy'},...
+                                            '',lopts);
     end
     
     
@@ -125,9 +157,13 @@ for i=1:sizeS
     
     % declare LMI constraints
     if gLMI.isbmi
-        BMImat = LMIauto;
-        BMIopt = gLMI;
-        orgBMI = BMI;
+        vstruct(vstep).dLMI = LMIauto;
+        vstruct(vstep).BMIopt = gLMI;
+        vstruct(vstep).orgBMI = BMI;
+        if vstep < vlen
+            vstep = vstep + 1;
+        end
+        bminum = bminum + 1;
     else
         LMIlist = [LMIlist, LMIauto<=-1e-6];
     end
@@ -137,9 +173,16 @@ for i=1:sizeS
     
 end
 
-% BMImat
+if ~(vstep == bminum)
+    error("The number of varargin{2} and BMIs must be the same: \nThere are %d BMIs in input. \n(Number of Input: varargin=%d, BMIs=%d)",bminum,bminum,vlen);
+end
+
+% dLMI
 % LMIlist
 % sdpvarnamelist
+vstruct(1)
+vstruct(2)
+disp("line: 185")
 
 sdpvarnamelist = unique(sdpvarnamelist,'stable');
 
@@ -161,7 +204,7 @@ loweps = 1e-3;
 
 % size of linear term Q in the dilated LMI
 sizeQ = size(BMIopt.data.Q);
-sizeLMI = size(BMImat);
+sizeLMI = size(dLMI);
 
 % decide objective function 't'
 t = sdpvar;
@@ -169,7 +212,7 @@ tI = t * eye(sizeQ);
 alpha = blkdiag(tI, zeros(sizeLMI-sizeQ));
 
 %%% constraint for search init val
-LMIinit = [BMImat <= alpha]; % minimize t
+LMIinit = [dLMI <= alpha]; % minimize t
 if isZ
   LMIinit = [LMIinit, Z+Z'>=eps];
 %   LMIinit = [LMIinit, Z+Z'>=loweps];
@@ -262,10 +305,10 @@ end
 % value(Y0dummy)
 % value(Z)
 % value(Z0dummy)
-% value(BMImat)
+% value(dLMI)
 
 % Find max eig in LMIauto
-eiglmi = eig(value(BMImat));
+eiglmi = eig(value(dLMI));
 maxeig = max(eiglmi)
 % Decide first value 
 % if (>=0)   : search init solution
@@ -332,7 +375,7 @@ end
 %% run: overbounding approximation method
 
 % constraints
-LMI = [BMImat<=0];
+LMI = [dLMI<=0];
 if isZ
   LMI = [LMI, Z+Z'>=eps];
 %   LMI = [LMI, Z+Z'>=loweps];
