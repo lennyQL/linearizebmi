@@ -196,37 +196,42 @@ upeps = 1e3;
 loweps = 1e-3;
 
 
-%%% desison value 't'
+%%% decision value 't'
 % A dilated LMI constraint is below
 % [Q  XN      [tI O
 %  GY -G]  -   O  O]  <  O
 %
 
-% size of linear term Q in the dilated LMI
-sizeQ = size(BMIopt.data.Q);
-sizeLMI = size(dLMI);
+t = sdpvar;   % objective function
+LMIinit = []; % dilated LMI for searching initial solution
+for i=1:bminum
+    % size of linear term Q in the dilated LMI
+    sizeQ = size(vstruct(i).BMIopt.data.Q);
+    sizeLMI = size(vstruct(i).dLMI);
 
-% decide objective function 't'
-t = sdpvar;
-tI = t * eye(sizeQ);
-alpha = blkdiag(tI, zeros(sizeLMI-sizeQ));
+    % decide objective function 't'
+    tI = t * eye(sizeQ);
+    alpha = blkdiag(tI, zeros(sizeLMI-sizeQ));
 
-%%% constraint for search init val
-LMIinit = [dLMI <= alpha]; % minimize t
-if isZ
-  LMIinit = [LMIinit, Z+Z'>=eps];
-%   LMIinit = [LMIinit, Z+Z'>=loweps];
-%   LMIinit = [LMIinit, Z+Z'<=upeps];
+    %%% constraint for search init val
+    LMIi = [vstruct(i).dLMI <= alpha]; % minimize t
+    if isZ
+      LMIi = [LMIi, vstruct(i).Z+vstruct(i).Z'>=eps];
+    %   LMIi = [LMIi, Z+Z'>=loweps];
+    %   LMIi = [LMIi, Z+Z'<=upeps];
+    end
+    
+    LMIinit = [LMIinit, LMIi];
 end
-
 
 % Append other LMI
 LMIinit = [LMIinit, LMIlist];
 
-% Limits gamma upperbound
+% (Just Test): Limits gamma upperbound
 if opts.testg
     LMIinit = [LMIinit, 1e2>=g>=0];
 end
+
 
 %%% Init val
 % set init val by assign()
@@ -234,7 +239,6 @@ end
 %
 % All of these process is just for
 % finding max eig of LMIauto as alpha(t)
-
 
 
 % Decide others sdpvar default value
@@ -306,6 +310,12 @@ end
 % value(Z)
 % value(Z0dummy)
 % value(dLMI)
+
+value(vstruct(1).dLMI)
+blkdiag(vstruct(1).dLMI,vstruct(2).dLMI)
+value(blkdiag(vstruct(1).dLMI,vstruct(2).dLMI))
+eig(value(vstruct(1).dLMI))
+eig(value(vstruct(2).dLMI))
 
 % Find max eig in LMIauto
 eiglmi = eig(value(dLMI));

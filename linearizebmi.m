@@ -294,7 +294,8 @@ try
     % yalmip本体のエラー処理に任せる
     testBMI = evalin('base',S);
 catch ME
-    rethrow(ME)
+    fprintf("ERROR: Constraint in Input \n%s\n\n",S);
+    rethrow(ME);
 end
 
 
