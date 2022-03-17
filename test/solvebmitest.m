@@ -482,12 +482,12 @@ assign(p2,eye(nx,nx))
 assign(k,zeros(nu,ny))
 % assign(R,zeros(nz,nz))
 assign(R,eye(nz,nz))
-assign(g,0)
+% assign(g,0)
 
 
 %%% SDP solver の設定
 yalmipopts=sdpsettings;
-yalmipopts.solver='sedumi';	% 使用する SDP solver
+yalmipopts.solver='sdpt3';	% 使用する SDP solver
 yalmipopts.verbose=0;         % 詳細表示
     
 %%% solvebmiのオプション:
@@ -519,7 +519,7 @@ Flist = {Fstr1, Fstr2, Fstr3, Fstr4,"-p2","-pinf"};
 opts.method = 0;
 opts.regterm= 0;
 % solvebmi(Flist,{{'p2','k'},{'pinf','k'},{'pinf','k'}},g,opts);
-% [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
+% [gg,vars,output] = solvebmi(Flist,{'pinf','k'},g,opts);
 [gg,vars,output] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},g,opts);
 % ペナルティ項あり
 opts.method = 1;

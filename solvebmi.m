@@ -44,6 +44,7 @@ end
 
 % (vstruct): Info about decision variables set
 % !TODO: vstruct need to be a class
+vstruct(1:vlen) = struct;
 for i=1:vlen
     % var str
     try
@@ -174,15 +175,16 @@ for i=1:sizeS
 end
 
 if ~(vstep == bminum)
-    error("The number of varargin{2} and BMIs must be the same: \nThere are %d BMIs in input. \n(Number of Input: varargin=%d, BMIs=%d)",bminum,bminum,vlen);
+    error("The number of BMIs (in varargin{1}) and set of decision variables (in varargin{2}) must be the same: \n(There are %d BMIs, %d vars set in input)",bminum,vlen);
 end
 
 % dLMI
 % LMIlist
 % sdpvarnamelist
-vstruct(1)
-vstruct(2)
-disp("line: 185")
+
+% vstruct(1)
+% vstruct(2)
+% disp("line: 185")
 
 sdpvarnamelist = unique(sdpvarnamelist,'stable');
 
@@ -242,8 +244,7 @@ end
 
 
 % Decide others sdpvar default value
-firstvaluelist = {};
-
+firstvaluelist = cell(1,length(sdpvarnamelist));
 for i=1:length(sdpvarnamelist)
     name = sdpvarnamelist(i);    % string
     var = evalin('caller',name); % sdpvar
@@ -258,68 +259,48 @@ Z0first = value(Z);
 
 
 % Assign intial values
-assign(X0dummy,value(X))
-assign(Y0dummy,value(Y))
-assign(Z0dummy,eye(sizeZ))
+for i=1:bminum
+    assign(vstruct(i).X0dummy,value(vstruct(i).X))
+    assign(vstruct(i).Y0dummy,value(vstruct(i).Y))
+    assign(vstruct(i).Z0dummy,eye(vstruct(i).sizeZ))
 
-% X0, set default value if not exist assign value
-X0init = value(X0dummy);
-if isnan(X0init)
-%     val = zeros(sizeX);
-    val = eye(sizeX);
-    % val = eye(sizeX) * 1e3;
-    assign(X0dummy,val)
-%     assign(X,zeros(sizeX))
-    X0init = value(X0dummy);
-   
+    % set default value if not exist assign value
+    X0init = value(vstruct(i).X0dummy);
+    if isnan(X0init)
+        % val = zeros(sizeX);
+        val = eye(vstruct(i).sizeX);
+        assign(vstruct(i).X0dummy,val)
+        assign(vstruct(i).X,val)
+        X0init = value(vstruct(i).X0dummy);
+    end
+
+    Y0init = value(vstruct(i).Y0dummy);
+    if isnan(Y0init)
+        val = zeros(vstruct(i).sizeY);
+        assign(vstruct(i).Y0dummy,val)
+        assign(vstruct(i).Y,val)
+        Y0init = value(vstruct(i).Y0dummy);
+    end
+
+    Z0init = value(vstruct(i).Z0dummy);
+    assign(vstruct(i).Z,Z0init)
+    
+    vstruct(i).X0init = X0init;
+    vstruct(i).Y0init = Y0init;
+    vstruct(i).Z0init = Z0init;
 end
 
-% Y0
-Y0init = value(Y0dummy);
-if isnan(Y0init)
-    val = zeros(sizeY);
-    % val = -ones(sizeY);
-    assign(Y0dummy,val)
-%     assign(Y,zeros(sizeY))
-    Y0init = value(Y0dummy);
-end
 
-% Z0
-Z0init = value(Z0dummy);
-assign(Z,Z0init)
-
-% g
+% Assign initial objective values (actually, not needed)
 if isnan(value(g))
-    assign(g,0);
+    assign(g,zeros(size(g)));
 end
 
 
-
-
-% Assign values to decision values as O
-% assign(X,zeros(sizeX))
-% assign(Y,zeros(sizeY))
-% assign(Z,zeros(sizeZ))
-
-
-% value(g)
-% value(X)
-% value(X0dummy)
-% value(Y)
-% value(Y0dummy)
-% value(Z)
-% value(Z0dummy)
-% value(dLMI)
-
-value(vstruct(1).dLMI)
-blkdiag(vstruct(1).dLMI,vstruct(2).dLMI)
-value(blkdiag(vstruct(1).dLMI,vstruct(2).dLMI))
-eig(value(vstruct(1).dLMI))
-eig(value(vstruct(2).dLMI))
-
-% Find max eig in LMIauto
-eiglmi = eig(value(dLMI));
+% Find max eig in dilated LMI with alpha
+eiglmi = eig(value(blkdiag(vstruct(1:bminum).dLMI)));
 maxeig = max(eiglmi)
+
 % Decide first value 
 % if (>=0)   : search init solution
 % elseif (<0): assign val is init solution
@@ -341,22 +322,23 @@ while tt >= 0
   lc=lc+1;
   
   extLMI=LMIinit;
-  extLMI=replace(extLMI,X0dummy,X0init);
-  extLMI=replace(extLMI,Y0dummy,Y0init);
-  extLMI=replace(extLMI,Z0dummy,Z0init);
-  
+  for i=1:bminum
+      extLMI=replace(extLMI,vstruct(i).X0dummy,vstruct(i).X0init);
+      extLMI=replace(extLMI,vstruct(i).Y0dummy,vstruct(i).Y0init);
+      extLMI=replace(extLMI,vstruct(i).Z0dummy,vstruct(i).Z0init);
+  end
 
   optimize(extLMI,t,opts.yalmip);
-
-  X0init=double(X);
-  Y0init=double(Y);
-  Z0init=double(Z);
-
+  for i=1:bminum
+      vstruct(i).X0init=double(vstruct(i).X);
+      vstruct(i).Y0init=double(vstruct(i).Y);
+      vstruct(i).Z0init=double(vstruct(i).Z);
+  end
   
   tt=double(t);
   ttall=[ttall,tt];
   
-%   gout=double(g)
+  % gout=double(g)
   
   % debug output (maybe not necessary)
   if debug
@@ -365,7 +347,7 @@ while tt >= 0
   
   
   % loop count upper bound
-  if lc == 200
+  if lc == 1000
       break
   end
   
@@ -433,7 +415,7 @@ if ~isequal(pt,0) && ~opts.regterm
 end
 
 
-% init val from upper process
+% init val from above process
 X0 = X0init;
 Y0 = Y0init;
 if isZ
@@ -458,7 +440,7 @@ if opts.test
 end
 
 
-%%
+
 %%% loop
 if debug
   disp(" ");
