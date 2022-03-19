@@ -1,6 +1,6 @@
 %%%
 % H-infinity control by static output feedback
-% with the overbounding approximation proposed in Sebe (2007).
+% with the overbounding approximation proposed in Sebe (2018).
 
 
 %%% SDP solver settings (YALMIP)
@@ -46,7 +46,8 @@ g0=sdpvar(1,1);
 
 % Define decomposition matrix
 nk=size(k,1);
-G0=eye(nk);
+G =sdpvar(nk,nk,'full');   % decomposition matrix (decision value)
+G0=sdpvar(nk,nk,'full');   % decomposition matrix (dummy)
 
 %% Definition of BMI problem
 % BMI as a string
@@ -56,8 +57,8 @@ Fstr = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
 
     
 %%% Use linearizebmi() to convert BMI into dilated LMI
-% (case 1) decomposition matrix G is constant
-[LMIauto,LMIstr,~,orgBMI]=linearizebmi(Fstr,{'p','k'},{'p0','k0'},'G0');
+% (case 2) decomposition matrix G is a decision value
+[LMIauto,LMIstr,~,orgBMI]=linearizebmi(Fstr,{'p','k','G'},{'p0','k0','G0'});
 
 % Define extended H-infinity constraints
 LMI=[LMIauto<=0,p>=1e-6];
@@ -67,10 +68,13 @@ vp=sdpvar(nx,nx,'symmetric');
 LMI=[LMI,[vp,triu(p-p0);triu(p-p0)',eye(nx)]>=0];
 vk=sdpvar(nu,nu,'symmetric');
 LMI=[LMI,[vk,k-k0;(k-k0)',eye(ny)]>=0];
-vg=sdpvar(1,1);
-LMI=[LMI,[vg,g-g0;g-g0,1]>=0];
+vg=sdpvar(nk,nk,'symmetric');
+LMI=[LMI,[vg,G-G0;(G-G0)',eye(nk)]>=0];
+vgg=sdpvar(1,1);
+LMI=[LMI,[vgg,g-g0;g-g0,1]>=0];
 
-LMI=[LMI,v>=trace(vp)+trace(vk)+vg];
+LMI=[LMI,v>=trace(vp)+trace(vk)+trace(vg)+vgg];
+
 
 %%% Overbounding Aprroximation Method
 %% Initial feasible solutions
@@ -81,6 +85,7 @@ initLMI=replace(orgBMI,k,k0init);
 optimize([initLMI<=0,p>=1e-6],g,opts);
 p0init=double(p);
 g0init=double(g);
+G0init=eye(size(G));
 ggsav=g0init;
 
 %% sequentially optimization 
@@ -90,12 +95,14 @@ for lc=1:lcmax
   extLMI=replace(extLMI,p0,p0init);
   extLMI=replace(extLMI,k0,k0init);
   extLMI=replace(extLMI,g0,g0init);
+  extLMI=replace(extLMI,G0,G0init);
 
   optimize(extLMI,g+v*pt,opts);
 
   p0init=double(p);
   k0init=double(k);
   g0init=double(g);
+  G0init=double(G);
 
   % Print out achieved optimal value
   gg=g0init;

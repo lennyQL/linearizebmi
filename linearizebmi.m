@@ -1,4 +1,4 @@
-function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G)
+function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G, opts)
 % BMIの文字列を受け取り，逐次LMIの値を返すパーサー
 %   
 %   OUTPUT:
@@ -15,6 +15,16 @@ function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G)
 %       v0list: 暫定解の文字列
 %           ex) {'P0','K0'}
 %       G: gammaの定数倍，デフォルトで単位行列
+%           ex) 'G'
+%       opts: オプション
+%           ex) opts = linearizebmiOptions;
+%
+%           Method types (opts.method)
+%            - 0: Sebe (2007)
+%            - 1: Sebe (2018)
+%            - 2: Shimomura & Fujii (2005)
+%            - 3: Lee & Hu (2016)
+%            - 4: Ren et al. (2021)
 %
 %
 %   ※ワークスペースの変数の値を利用して計算するので，
@@ -36,6 +46,9 @@ function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G)
 %       ・ベクトル同士の積による行列の記述が可能
 %
 
+
+%% 関数引数のデータを取得
+
 % 文字列を文字ベクトルに変換
 if isa(S,'string')
     S = char(S);
@@ -52,19 +65,31 @@ try
     Ystr =char(vlist{2});
     X0str=char(v0list{1});
     Y0str=char(v0list{2});
-catch 
-    error('varargin{2}, varargin{3} must be the char list');
+catch ME
+    rethrow(ME)
+%     error('varargin{2}, varargin{3} must be the char list');
 end
 
 
+% 1つ目の分割行列の取得
 Zstr = '';
-if length(vlist) == 3
+Z0str = '';
+if length(vlist) >= 3
     % 分割行列も決定変数のとき
     Zstr =char(vlist{3});
     Z0str=char(v0list{3});
 end
 % Zの存在チェックflag
 isZ = ~isempty(Zstr);
+
+% 2つ目の分割行列の取得
+Mstr = '';
+M0str = '';
+if length(vlist) >= 4
+    Mstr =char(vlist{4});
+    M0str=char(v0list{4});
+end
+isM = ~isempty(Mstr);
 
 
 % 決定変数の取得
@@ -107,6 +132,16 @@ if isZ
         Z0 = evalin('base', Z0str);
     end
 end
+% Mも同様
+if isM
+    try
+        M = evalin('caller', Mstr);
+        M0 = evalin('caller', M0str);
+    catch
+        M = evalin('base', Mstr);
+        M0 = evalin('base', M0str);
+    end
+end
 
 
 % 決定変数と暫定解のサイズチェック
@@ -119,19 +154,137 @@ end
 if isZ && ~isequal(size(Z),size(Z0))
     error("size of '%s' and '%s' must be the same",Zstr,Z0str);
 end
+if isM && ~isequal(size(M),size(M0))
+    error("size of '%s' and '%s' must be the same",Mstr,M0str);
+end
+
 
 % Gの取得
-if nargin<4
+if nargin<4 || isempty(G)
     % デフォルト：単位行列
-    Gchar = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
+    Gchar = [func2str(@eye) '(' num2str(size(Y,1)) ')'];
     G = eye(size(Y,1));
 elseif isa(G,'string') || isa(G,'char') 
     % G のclassチェック
     Gchar = string(G);
     G = evalin('base',G);
+    if isequal(class(G),'sdpvar')
+        error("data in '%s' as varargin{4} must be constant value, not sdpvar",Gchar)
+    end
 else
     error('varargin{4} must be "char" class')
 end
+
+
+% オプションの取得
+if nargin<5
+    opts = linearizebmiOptions;
+
+    % オプション入力ないとき,
+    % vlistの入力引数の数でmethodを切り替える
+    % debug(test)用
+    if isM  
+        % input:4
+        opts.method = 4;
+    elseif isZ
+        % input:3
+        opts.method = 1;
+    else
+        % input:2
+        opts.method = 0;
+    end
+end
+
+% For method=1
+t = opts.t;
+
+
+% methodのエラー処理
+% case 2,3 の場合, G, Z, Z0 の対称性をチェックする必要がある.
+% case 4 の場合, 上記に加えて入力引数の数のチェックも必要.
+switch opts.method
+    case 0
+        % 入力引数チェック
+        if isZ || isM
+            warning("varargin{2},{3} only need 2 elements in cell list (method:0)")
+        end
+        % G: constant
+        if isequal(class(G),'sdpvar')
+            error("'%s' must be constant value, not sdpvar (method:0)",Gchar)
+        end
+    
+    case 1
+        % 入力引数チェック
+        if ~isZ
+            error("varargin{2},{3} must have 3 elements in cell list (method:1)");
+        elseif isM
+            warning("varargin{2},{3} only need 3 elements in cell list (method:1)");
+        end
+        % 対称性チェック
+        % Z: full
+        if ~is(Z,'scalar') 
+            if is(Z,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:1)", Zstr)
+            elseif isequal(class(Z0),'sdpvar') && is(Z0,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:1)", Z0str)
+            end
+        end
+        
+    
+    case 2
+        % 入力引数チェック
+        if isZ || isM
+            warning("varargin{2},{3} only need 2 elements in cell list (method:2)")
+        end
+        % G: constant
+        if isequal(class(G),'sdpvar')
+            error("'%s' must be constant value, not sdpvar (method:2)",Gchar)
+        end
+    
+    case 3
+        % 入力引数チェック
+        if ~isZ
+            error("varargin{2},{3} must have 3 elements in cell list (method:3)");
+        elseif isM
+            warning("varargin{2},{3} only need 3 elements in cell list (method:3)");
+        end
+        % 対称性チェック
+        % Z: symmetric
+        if ~is(Z,'scalar') 
+            if ~is(Z,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:3)", Zstr)
+            elseif isequal(class(Z0),'sdpvar') && ~is(Z0,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:3)", Z0str)
+            end
+        end
+    
+    case 4
+        % 入力引数チェック
+        if ~isM
+            error("varargin{2},{3} must have 4 elements in cell list (method:4)");
+        end
+        % 対称性チェック
+        % Z: full
+        % M: symmetric
+        if ~is(Z,'scalar') 
+            if is(Z,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:4)", Zstr)
+            elseif isequal(class(Z0),'sdpvar') && is(Z0,'symmetric')
+                error("'%s' must be 'full' type sdpvar (method:4)", Z0str)
+            end
+        end
+        if ~is(M,'scalar') 
+            if ~is(M,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:4)", Mstr)
+            elseif isequal(class(M0),'sdpvar') && ~is(M0,'symmetric')
+                error("'%s' must be 'symmetric' type sdpvar (method:4)", M0str)
+            end
+        end
+    
+    otherwise
+        error('not supported method');
+end
+
 
 
 
@@ -141,33 +294,11 @@ try
     % yalmip本体のエラー処理に任せる
     testBMI = evalin('base',S);
 catch ME
-    rethrow(ME)
+    fprintf("ERROR: Constraint in Input \n%s\n\n",S);
+    rethrow(ME);
 end
 
 
-
-%%% 極配置でYのエラーチェックが通らない
-%%% 構造を持ったsdpvarのreplaceがうまくいかない
-% testBMI
-% Y
-% Y0
-% zeros(size(Y))
-% replace(testBMI,X,X0)
-% replace(testBMI,Y,Y0)
-% isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI)))
-% is(replace(testBMI,X,zeros(size(X))),'linear')
-
-% X,Yが記述制約のmember(sdpvar)かどうか調べる
-% if isequal(replace(testBMI,X,zeros(size(X))),zeros(size(testBMI))) ||...
-%    is(replace(testBMI,X,zeros(size(X))),'linear') 
-% else
-%     error("'%s' is not a member in this constraint.",Xstr);
-% end
-% if isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI))) ||...
-%    is(replace(testBMI,Y,zeros(size(Y))),'linear') 
-% else
-%     error("'%s' is not a member in this constraint.",Ystr);
-% end
 
 %% 字句解析の前処理(pre-process)
 
@@ -516,6 +647,7 @@ end
 gBMI.sdpvarname = unique(sdpvarnamelist,'stable');
 
 
+
 %% そもそもLMIならそのまま出力
 
 % testBMI
@@ -529,6 +661,13 @@ if is(testBMI,'linear')
     return
 end
 
+%% vlistの{X,Y}が本当にFstrの決定変数になっているか調べる(エラー処理用)
+
+if isempty(find(gBMI.sdpvarname == Xstr))
+    error("'%s' is not a variable in this BMI: \n\n[%s]",Xstr,S);
+elseif isempty(find(gBMI.sdpvarname == Ystr))
+    error("'%s' is not a variable in this BMI: \n\n[%s]",Ystr,S);
+end
 
 
 %% 線形項と双線形項の分離
@@ -889,27 +1028,103 @@ BMIeval = Qeval + Bieval + Bieval';
 %          -G];
 % heあり
 
-if isZ
-% 分割行列も決定変数の場合(Zがある)
-LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
-    (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
-     Leval*(X-X0)*Neval,...     % (1,2)
-    (Z0*(Y-Y0)*Reval)';...      % (1,3)
-    (Leval*(X-X0)*Neval)',...   % (2,1)
-     -(Z+Z'),...                % (2,2)
-     Z;...                      % (2,3)
-     Z0*(Y-Y0)*Reval,...        % (3,1)
-     Z',...                     % (3,2)
-     -(Z0+Z0')];                % (3,3)
+% if isZ
+% % 分割行列も決定変数の場合(Zがある)
+% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+%     (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+%      Leval*(X-X0)*Neval+(Z0*t*(Y-Y0)*Reval)',...     % (1,2)
+%     (Z0*(1-t)*(Y-Y0)*Reval)';...      % (1,3)
+%      Z0*t*(Y-Y0)*Reval+(Leval*(X-X0)*Neval)',...   % (2,1)
+%      -(Z+Z'),...                % (2,2)
+%      Z-Z0*t;...                      % (2,3)
+%      Z0*(1-t)*(Y-Y0)*Reval,...        % (3,1)
+%     (Z-Z0*t)',...                     % (3,2)
+%      -(Z0+Z0')*(1-t)];                % (3,3)
+% 
+% else
+% % 分割行列が定数行列の場合(Zなし)
+% LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+%         (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...% (1,1)
+%          Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...   % (1,2)
+%         (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',... % (2,1)
+%          -(G+G')];                                  % (2,2)
+% end
 
-else
-% 分割行列が定数行列の場合(Zなし)
-LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+% 拡大したLMI条件, Heあり
+% opts.methodで変換する拡大LMIを選択
+switch opts.method
+  case 0  % Sebe (2007)
+          % decomposition matrix G is a constant matrix
+    LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
         (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...% (1,1)
          Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G';...   % (1,2)
         (Leval*(X-X0)*Neval+Reval'*(Y-Y0)'*G')',... % (2,1)
          -(G+G')];                                  % (2,2)
+
+  case 1  % Sebe (2018)
+          % decomposition matrix G is a decision matrix
+    LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+              (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+               Leval*(X-X0)*Neval+(Z0*t*(Y-Y0)*Reval)',...     % (1,2)
+              (Z0*(1-t)*(Y-Y0)*Reval)';...      % (1,3)
+               Z0*t*(Y-Y0)*Reval+(Leval*(X-X0)*Neval)',...   % (2,1)
+             -(Z+Z'),...                        % (2,2)
+               Z-Z0*t;...                       % (2,3)
+               Z0*(1-t)*(Y-Y0)*Reval,...        % (3,1)
+              (Z-Z0*t)',...                     % (3,2)
+             -(Z0+Z0')*(1-t)];                  % (3,3)
+
+  case 2  % Shimomura & Fujii (2005)
+          % (overbounding approximation by completing the square with constant matrix)
+    LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+              (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...% (1,1)
+               Leval*(X-X0)*Neval,...   % (1,2)
+              ((Y-Y0)*Reval)';...       % (1,3)
+              (Leval*(X-X0)*Neval)',... % (2,1)
+              -inv(G),...               % (2,2)
+               zeros(size(G,1));...     % (2,3)
+              (Y-Y0)*Reval,...          % (3,1)
+               zeros(size(G,1)),...     % (3,2)
+              -G];                      % (3,3)
+          
+  case 3  % Lee & Hu (2016)
+          % (overbounding approximation by completing the square with decision matrix)
+    LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+              (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',...% (1,1)
+               Leval*(X-X0)*Neval*Z0,...   % (1,2)
+              ((Y-Y0)*Reval)';...          % (1,3)
+              (Leval*(X-X0)*Neval*Z0)',... % (2,1)
+               Z-2*Z0,...                  % (2,2)
+               zeros(size(Z0,1));...       % (2,3)
+              (Y-Y0)*Reval,...             % (3,1)
+               zeros(size(Z0,1)),...       % (3,2)
+              -Z];                         % (3,3)
+          
+  case 4  % Ren el al. (2021)
+          % (combining Sebe (2007) and Shimomura & Fujii (2005) for decomposition matrix)
+    LMIeval = [Qeval+Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval+...
+              (Leval*X*Neval*Y0*Reval+Leval*X0*Neval*Y*Reval-Leval*X0*Neval*Y0*Reval)',... % (1,1)
+               Leval*(X-X0)*Neval+(Z0*(Y-Y0)*Reval)',...     % (1,2)
+              ((Y-Y0)*Reval)'*M0,...            % (1,3)
+               zeros(size(Qeval,1),size(M0,1));...           % (1,4)
+               Z0*(Y-Y0)*Reval+(Leval*(X-X0)*Neval)',...     % (2,1)
+             -(Z+Z'),...                        % (2,2)
+               zeros(size(Z0,1)),...            % (2,3)
+               Z-Z0;...                         % (2,4)
+               M0*(Y-Y0)*Reval,...              % (3,1)
+               zeros(size(Z0,1)),...            % (3,2)
+               M-2*M0,...                       % (3,3)
+               zeros(size(M0,1));...            % (3,4)
+               zeros(size(Qeval,1),size(M0,1))',...          % (4,1)
+              (Z-Z0)',...                       % (4,2)
+               zeros(size(M0,1)),...            % (4,3)
+               -M];                             % (4,4)
+           
+  otherwise
+    error('not supported method');
 end
+
+
      
 %% For debug，Q,L,N,R,G's string
 % represent by string list
@@ -946,7 +1161,7 @@ for i=1:length(R)
     if var == "1eye"
         var = [func2str(@eye) '(' num2str(size(Y,2)) ')'];
     elseif var == "0zero"
-        var = [func2str(@zeros) '(' num2str(size(Reval,1)) ',' num2str(rowsize(i)) ')'];
+        var = [func2str(@zeros) '(' num2str(size(Y,1)) ',' num2str(rowsize(i)) ')'];
     end
     Rchar = [Rchar string(var)];
 end
@@ -1067,26 +1282,68 @@ for i=1:length(Lchar)
     LXN = [LXN; string(l)];
 end
 
-% GYR
-GYR = [];
-for i=1:length(Rchar)
-    if regexp(Rchar(i), "zeros")
-        l = char(Rchar(i));
-    elseif regexp(Gchar, "eye")
-        l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
-    elseif regexp(Rchar(i), "eye")
-        l = [char(Gchar) '*(' Ychar '-' Y0char ')'];
-    elseif regexp(Gchar, "eye") & regexp(Rchar(i), "eye")
-        l = [Ychar '-' Y0char];
-    else
-        l = [char(Gchar) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
-    end
-    GYR = [GYR string(l)];
+
+switch opts.method
+    case {0,2}
+        % GYR
+        GYR = [];
+        for i=1:length(Rchar)
+            if regexp(Rchar(i), "zeros")
+                l = char(Rchar(i));
+            elseif regexp(Gchar, "eye")
+                l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
+            elseif regexp(Rchar(i), "eye")
+                l = [char(Gchar) '*(' Ychar '-' Y0char ')'];
+            elseif regexp(Gchar, "eye") & regexp(Rchar(i), "eye")
+                l = [Ychar '-' Y0char];
+            else
+                l = [char(Gchar) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
+            end
+            GYR = [GYR string(l)];
+        end        
+
+        % Dilated LMI
+        LMIstr = lmistr(QLXNYR,LXN,GYR,"-"+Gchar,XNY_);
+        
+    otherwise
+        % HYR
+        HYR = [];
+        Zchar = string(Zstr);
+        Z0char = string(Z0str);
+        for i=1:length(Rchar)
+            if regexp(Rchar(i), "zeros")
+                l = char(Rchar(i));
+            elseif regexp(Z0char, "eye")
+                l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
+            elseif regexp(Rchar(i), "eye")
+                l = [char(Z0char) '*(' Ychar '-' Y0char ')'];
+            elseif regexp(Z0char, "eye") & regexp(Rchar(i), "eye")
+                l = [Ychar '-' Y0char];
+            else
+                l = [char(Z0char) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
+            end
+            HYR = [HYR string(l)];
+        end
+
+        % zeros
+        % HYR'
+        O1 = [];
+        for i=1:length(Rchar)
+            o = [func2str(@zeros) '(' num2str(colsize(i)) ',' num2str(size(Z,2)) ')'];
+            O1 = [O1; string(o)];
+        end
+        % LXN'
+        O2 = [];
+        for i=1:length(Lchar)
+            o = [func2str(@zeros) '(' num2str(size(Z,1)) ',' num2str(rowsize(i)) ')'];
+            O2 = [O2 string(o)];
+        end
+        % Z'
+        O3 = [func2str(@zeros) '(' num2str(size(Z,2)) ',' num2str(size(Z,1)) ')'];
+        
+        % Dilated LMI
+        LMIstr = lmistr(QLXNYR, LXN, O1, O2, "-"+Zchar, Zchar, HYR, O3, "-"+Z0char, XNY_);
 end
-
-% Dilated LMI
-LMIstr = lmistr(QLXNYR,LXN,GYR,"-"+Gchar,XNY_);
-
 
 
 

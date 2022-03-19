@@ -48,9 +48,10 @@ yalmipopts.solver='sedumi';	% SDP solver
 yalmipopts.verbose=0;       % No details
 
 %%% solvebmi options:
-opts.yalmip = yalmipopts;   % yalmip options
-opts.lcmax = 200;           % Maximum step times
-
+opts = solvebmiOptions;
+opts = solvebmiOptions(opts,'yalmip',yalmipopts);   % yalmip options
+opts = solvebmiOptions(opts,'lcmax',200);            % Maximum step times
+% opts.penalty=1e-2;
 
 %%% BMI as a string
 Fstr1 = "[p*(a+b2*k*c2)+(p*(a+b2*k*c2))',p*(b1+b2*k*d21);"+...
@@ -72,12 +73,12 @@ Flist = {Fstr1, Fstr2, Fstr3};
 
 % (Type 1) Decomposition matrix G is a constant matrix
 % :Solve speed is fast
-opts.dilate = 0;
+opts = solvebmiOptions(opts,'method',0);
 [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
 
 % (Type 2) Decomposition matrix G is a decision matrix
 % :Converges quickly
-opts.dilate = 1;
+opts = solvebmiOptions(opts,'method',1);
 [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
 
 
@@ -95,26 +96,30 @@ K2 = vars2.k
 % vars2
 
 
-%%% Figure achieved value g
-ggall = [output.ggall; output2.ggall]';
-figure;
-plot(ggall,'LineWidth',2);
-xlabel('Number of Iteration')
-ylabel('$H_{\infty}$ norm','Interpreter','latex')
-legend('dilated LMI (5)','dilated LMI (7)')
-grid on
-
-
 %%% Figure process about optimizing "alpha" 
 %%% for searching initial feasible solutions
-[ttall1,ttall2] = matchSize(output.ttall, output2.ttall);
-ttall = [ttall1; ttall2]';
+%alphaall = shapePlotData(output.alphaall, output2.alphaall);
 figure;
-plot(ttall,'LineWidth',2);
+plot(0:length(output.alphaall)-1,output.alphaall,'LineWidth',2);
+hold on;
+plot(0:length(output2.alphaall)-1,output2.alphaall,'LineWidth',2);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
-legend('dilated LMI (5)','dilated LMI (7)')
+legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)')
 xticks(0:1:200)
-grid on
+grid on;
+hold off;
 
 
+%%% Figure achieved value g
+%ggall = [output.ggall; output2.ggall]';
+figure;
+plot(0:length(output.ggall)-1,output.ggall,'LineWidth',2);
+hold on;
+plot(0:length(output2.ggall)-1,output2.ggall,'LineWidth',2);
+ylim([0,3]);
+xlabel('Number of Iteration')
+ylabel('$H_{2}$ norm','Interpreter','latex')
+legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)')
+grid on;
+hold off;

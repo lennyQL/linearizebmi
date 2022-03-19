@@ -1,4 +1,4 @@
-%% Pole place probklem
+%% Pole place problem
 
 % Plant
 n = 4;
