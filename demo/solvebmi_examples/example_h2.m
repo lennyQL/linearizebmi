@@ -98,11 +98,11 @@ K2 = vars2.k
 
 %%% Figure process about optimizing "alpha" 
 %%% for searching initial feasible solutions
-%ttall = shapePlotData(output.ttall, output2.ttall);
+%alphaall = shapePlotData(output.alphaall, output2.alphaall);
 figure;
-plot(0:length(output.ttall)-1,output.ttall,'LineWidth',2);
+plot(0:length(output.alphaall)-1,output.alphaall,'LineWidth',2);
 hold on;
-plot(0:length(output2.ttall)-1,output2.ttall,'LineWidth',2);
+plot(0:length(output2.alphaall)-1,output2.alphaall,'LineWidth',2);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 legend('dilated LMI (Sebe 2007)','dilated LMI (Sebe 2018)')
