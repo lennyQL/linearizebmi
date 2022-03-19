@@ -174,7 +174,6 @@ legend(lgd);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 title(probid);
-xticks(0:1:1000)
 grid on;
 hold off;
 
