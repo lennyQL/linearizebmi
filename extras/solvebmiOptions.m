@@ -29,6 +29,13 @@ opts.showstep = 1;
 % - true:  decomposition matrix is decision value (3x3 blocks LMI)
 opts.method = 0;
 
+%%% Constant factor for decomposition matrix
+% Update: G = ^G + dG
+%  ^G = t * G_{n-1}
+%   H = (1-t) * G_{n-1}
+%opts.t = 0.99;
+opts.t = 0;
+
 %%% regularetion term
 % use variable regularization term
 opts.regterm = 0;
@@ -36,14 +43,8 @@ opts.regterm = 0;
 %%% Regularization term factor:
 % use constant regularization term
 % - this is not bool; but numeric
-% - if 0, there are no penaty terms
+% - if 0, there are no penalty terms
 opts.penalty = 1e-6;
-
-
-%%% test
-%%% *Do not turn on these options unless you are maitner of this code.*
-opts.test = 0;
-opts.testg = 0;
 
 
 %% Input checks

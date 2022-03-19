@@ -38,12 +38,12 @@ for i=1:length(vlist)
     end
 end
 
-if vlen == 1
+if vlen == 1 && isa(vlist{1},'char')
     vlist = {vlist};
 end
 
 % (vstruct): Info about decision variables set
-% !TODO: vstruct need to be a class
+% !TODO: vstruct need to be a class (maybe)
 vstruct(1:vlen) = struct;
 for i=1:vlen
     % var str
@@ -71,12 +71,26 @@ for i=1:vlen
     vstruct(i).X0dummy = X0dummy;
     vstruct(i).Y0dummy = Y0dummy;
     % info about Z
-    Z = sdpvar(sizeY(1),sizeY(1),'full');
-    sizeZ = size(Z);
-    Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
+    if opts.method == 3
+        Z = sdpvar(sizeY(1),sizeY(1),'symmetric');
+        sizeZ = size(Z);
+        Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'symmetric');
+    else
+        Z = sdpvar(sizeY(1),sizeY(1),'full');
+        sizeZ = size(Z);
+        Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
+    end
     vstruct(i).Z = Z;
     vstruct(i).sizeZ = sizeZ;
     vstruct(i).Z0dummy = Z0dummy;
+    % info about M
+    M = sdpvar(sizeY(1),sizeY(1),'symmetric');
+    sizeM = size(M);
+    M0dummy = sdpvar(sizeM(1),sizeM(2),'symmetric');
+    vstruct(i).M = M;
+    vstruct(i).sizeM = sizeM;
+    vstruct(i).M0dummy = M0dummy;
+    
 end
 % vstruct(1)
 % vstruct(2)
@@ -93,8 +107,13 @@ end
 switch opts.method % checker existence of Z
     case {0,2}
         isZ = 0;
-    case {1,3,4}
+        isM = 0;
+    case {1,3}
         isZ = 1;
+        isM = 0;
+    case 4
+        isZ = 1;
+        isM = 1;
     otherwise
         error('not supported method');
 end
@@ -124,7 +143,7 @@ LMIlist = [];        % constraints
 sdpvarnamelist = []; % varnames
 
 % linearizebmi options
-lopts = linearizebmiOptions('method',opts.method);
+lopts = linearizebmiOptions('method',opts.method,'t',opts.t);
 
 vstep = 1;  % step of vstruct(corresponding to BMI)
 bminum = 0; % number of BMIs
@@ -134,13 +153,19 @@ for i=1:sizeS
     Xstr = vstruct(vstep).Xstr;
     Ystr = vstruct(vstep).Ystr;
     Z = vstruct(vstep).Z;
+    M = vstruct(vstep).M;
     X0dummy = vstruct(vstep).X0dummy;
     Y0dummy = vstruct(vstep).Y0dummy;
     Z0dummy = vstruct(vstep).Z0dummy;
+    M0dummy = vstruct(vstep).M0dummy;
     
     
-    if isZ
-%         Z,is(Z,'scalar')
+    if isM
+        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                            {Xstr,Ystr,'Z','M'},...
+                                            {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
+                                            '',lopts);
+    elseif isZ
         [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
                                             {Xstr,Ystr,'Z'},...
                                             {'X0dummy','Y0dummy','Z0dummy'},...
@@ -219,8 +244,11 @@ for i=1:bminum
     LMIi = [vstruct(i).dLMI <= alpha]; % minimize t
     if isZ
       LMIi = [LMIi, vstruct(i).Z+vstruct(i).Z'>=eps];
-    %   LMIi = [LMIi, Z+Z'>=loweps];
-    %   LMIi = [LMIi, Z+Z'<=upeps];
+      %LMIi = [LMIi, Z+Z'>=loweps];
+      %LMIi = [LMIi, Z+Z'<=upeps];
+    end
+    if isM
+      LMIi = [LMIi, vstruct(i).M+vstruct(i).M'>=eps];    
     end
     
     LMIinit = [LMIinit, LMIi];
@@ -229,10 +257,8 @@ end
 % Append other LMI
 LMIinit = [LMIinit, LMIlist];
 
-% (Just Test): Limits gamma upperbound
-if opts.testg
-    LMIinit = [LMIinit, 1e2>=g>=0];
-end
+% (Just Test): Limits gamma bounds
+LMIinit = [LMIinit, 1e3>=g>=0];
 
 
 %%% Init val
@@ -263,6 +289,7 @@ for i=1:bminum
     assign(vstruct(i).X0dummy,value(vstruct(i).X))
     assign(vstruct(i).Y0dummy,value(vstruct(i).Y))
     assign(vstruct(i).Z0dummy,eye(vstruct(i).sizeZ))
+    assign(vstruct(i).M0dummy,eye(vstruct(i).sizeM))
 
     % set default value if not exist assign value
     X0init = value(vstruct(i).X0dummy);
@@ -285,9 +312,13 @@ for i=1:bminum
     Z0init = value(vstruct(i).Z0dummy);
     assign(vstruct(i).Z,Z0init)
     
+    M0init = value(vstruct(i).M0dummy);
+    assign(vstruct(i).M,M0init)
+    
     vstruct(i).X0init = X0init;
     vstruct(i).Y0init = Y0init;
     vstruct(i).Z0init = Z0init;
+    vstruct(i).M0init = M0init;
 end
 
 
@@ -299,7 +330,7 @@ end
 
 % Find max eig in dilated LMI with alpha
 eiglmi = eig(value(blkdiag(vstruct(1:bminum).dLMI)));
-maxeig = max(eiglmi)
+maxeig = max(eiglmi);
 
 % Decide first value 
 % if (>=0)   : search init solution
@@ -316,6 +347,8 @@ if debug
   disp("start")
 end
 
+maxeig
+
 ttall = tt;   % optimal solutions
 lc = 0;
 while tt >= 0
@@ -326,6 +359,7 @@ while tt >= 0
       extLMI=replace(extLMI,vstruct(i).X0dummy,vstruct(i).X0init);
       extLMI=replace(extLMI,vstruct(i).Y0dummy,vstruct(i).Y0init);
       extLMI=replace(extLMI,vstruct(i).Z0dummy,vstruct(i).Z0init);
+      extLMI=replace(extLMI,vstruct(i).M0dummy,vstruct(i).M0init);
   end
 
   optimize(extLMI,t,opts.yalmip);
@@ -333,6 +367,7 @@ while tt >= 0
       vstruct(i).X0init=double(vstruct(i).X);
       vstruct(i).Y0init=double(vstruct(i).Y);
       vstruct(i).Z0init=double(vstruct(i).Z);
+      vstruct(i).M0init=double(vstruct(i).M);
   end
   
   tt=double(t);
@@ -348,6 +383,7 @@ while tt >= 0
   
   % loop count upper bound
   if lc == 1000
+      % disp("debug:loop:1")
       break
   end
   
@@ -367,13 +403,18 @@ end
 %% run: overbounding approximation method
 
 % constraints
-LMI = [dLMI<=0];
-if isZ
-  LMI = [LMI, Z+Z'>=eps];
-%   LMI = [LMI, Z+Z'>=loweps];
-%   LMI = [LMI, Z+Z'<=upeps];
+LMI = [];
+for i=1:bminum
+    LMI = [LMI, vstruct(i).dLMI<=0];
+    if isZ
+      LMI = [LMI, vstruct(i).Z+vstruct(i).Z'>=eps];
+      % LMI = [LMI, Z+Z'>=loweps];
+      % LMI = [LMI, Z+Z'<=upeps];
+    end
+    if isZ
+      LMI = [LMI, vstruct(i).M+vstruct(i).M'>=eps];
+    end
 end
-
 
 % Append other LMI
 LMI = [LMI, LMIlist];
@@ -382,63 +423,76 @@ LMI = [LMI, LMIlist];
 % Add regularization term
 v = sdpvar(1,1);
 pt = opts.penalty;
+
 if ~isequal(pt,0) && ~opts.regterm
-    [vxr,vxc]=size(X);
-    vx =sdpvar(vxr,vxr,'symmetric');
-    if issymmetric(X)
-      LMI=[LMI,[vx,triu(X-X0dummy);triu(X-X0dummy)',eye(vxc)]>=0];
-    else
-      LMI=[LMI,[vx,X-X0dummy;(X-X0dummy)',eye(vxc)]>=0];
-    end
+    for i=1:bminum
+        X = vstruct(i).X;
+        Y = vstruct(i).Y;
+        Z = vstruct(i).Z;
+        M = vstruct(i).M;
+        X0dummy = vstruct(i).X0dummy;
+        Y0dummy = vstruct(i).Y0dummy;
+        Z0dummy = vstruct(i).Z0dummy;
+        M0dummy = vstruct(i).M0dummy;
+        
+        [vxr,vxc]=size(X);
+        vx =sdpvar(vxr,vxr,'symmetric');
+        if issymmetric(X)
+          LMI=[LMI,[vx,triu(X-X0dummy);triu(X-X0dummy)',eye(vxc)]>=0];
+        else
+          LMI=[LMI,[vx,X-X0dummy;(X-X0dummy)',eye(vxc)]>=0];
+        end
 
-    [vyr,vyc]=size(Y);
-    vy =sdpvar(vyr,vyr,'symmetric');
-    if issymmetric(Y)
-      LMI=[LMI,[vy,triu(Y-Y0dummy);triu(Y-Y0dummy)',eye(vyc)]>=0];
-    else
-      LMI=[LMI,[vy,Y-Y0dummy;(Y-Y0dummy)',eye(vyc)]>=0];
-    end
+        [vyr,vyc]=size(Y);
+        vy =sdpvar(vyr,vyr,'symmetric');
+        if issymmetric(Y)
+          LMI=[LMI,[vy,triu(Y-Y0dummy);triu(Y-Y0dummy)',eye(vyc)]>=0];
+        else
+          LMI=[LMI,[vy,Y-Y0dummy;(Y-Y0dummy)',eye(vyc)]>=0];
+        end
 
-    if isZ
-      [vzr,vzc]=size(Z);
-      vz =sdpvar(vzr,vzr,'symmetric');
-      if issymmetric(Z)
-        LMI=[LMI,[vz,triu(Z-Z0dummy);triu(Z-Z0dummy)',eye(vzc)]>=0];
-      else
-        LMI=[LMI,[vz,Z-Z0dummy;(Z-Z0dummy)',eye(vzc)]>=0];
-      end
+        if isZ
+          [vzr,vzc]=size(Z);
+          vz =sdpvar(vzr,vzr,'symmetric');
+          if issymmetric(Z)
+            LMI=[LMI,[vz,triu(Z-Z0dummy);triu(Z-Z0dummy)',eye(vzc)]>=0];
+          else
+            LMI=[LMI,[vz,Z-Z0dummy;(Z-Z0dummy)',eye(vzc)]>=0];
+          end
+        end
+        
+        if isM
+          [vmr,vmc]=size(M);
+          vm =sdpvar(vmr,vmr,'symmetric');
+          if issymmetric(M)
+            LMI=[LMI,[vm,triu(M-M0dummy);triu(M-M0dummy)',eye(vmc)]>=0];
+          else
+            LMI=[LMI,[vm,M-M0dummy;(M-M0dummy)',eye(vmc)]>=0];
+          end
+        end
 
-      LMI=[LMI,v>=trace(vx)+trace(vy)+trace(vz)];
-    else
-      LMI=[LMI,v>=trace(vx)+trace(vy)];
+        if isM
+          LMI=[LMI,v>=trace(vx)+trace(vy)+trace(vz)+trace(vm)];
+        elseif isZ
+          LMI=[LMI,v>=trace(vx)+trace(vy)+trace(vz)];
+        else
+          LMI=[LMI,v>=trace(vx)+trace(vy)];
+        end
     end
 end
 
 
 % init val from above process
-X0 = X0init;
-Y0 = Y0init;
-if isZ
-%   Z0 = Z0init;
-  Z0 = eye(sizeZ);
+for i=1:bminum
+    vstruct(i).X0 = vstruct(i).X0init;
+    vstruct(i).Y0 = vstruct(i).Y0init;
+    if isZ
+      vstruct(i).Z0 = vstruct(i).Z0init;
+    end
+    if isM
+      vstruct(i).M0 = vstruct(i).M0init;
+    end
 end
-
-
-%%% test
-if opts.test
-    %%% Initial feasible solutions
-    % (K=O is a stabilizing static gain)
-    Y0init=zeros(size(Y));
-    %%% Calculate initial Lyapunov matrix and H-infinity norm
-    initLMI=replace(orgBMI,Y,Y0init);
-    optimize([initLMI<=0,LMIlist],g,opts.yalmip);
-    X0init=double(X);
-    ggsav=double(g);
-    %%%
-    X0 = X0init;
-    Y0 = Y0init;
-end
-
 
 
 %%% loop
@@ -464,41 +518,47 @@ tStart = tic;
 for lc=1:lcmax
   %%% replace dummy to new optimized val
   extLMI=LMI;
-  extLMI=replace(extLMI,X0dummy,X0);
-  extLMI=replace(extLMI,Y0dummy,Y0);
-  if isZ
-    extLMI=replace(extLMI,Z0dummy,Z0);
+  for i=1:bminum
+      extLMI=replace(extLMI,vstruct(i).X0dummy,vstruct(i).X0);
+      extLMI=replace(extLMI,vstruct(i).Y0dummy,vstruct(i).Y0);
+      if isZ
+        extLMI=replace(extLMI,vstruct(i).Z0dummy,vstruct(i).Z0);
+      end
+      if isM
+        extLMI=replace(extLMI,vstruct(i).M0dummy,vstruct(i).M0);
+      end
   end
   
   %%% applying regularization term
   if opts.regterm && opts.penalty>0
       lmdc = opts.penalty;
-      terms = regterm(lmdc,X,Y,X0,Y0,lc);
-      optval = g + terms;
-      optimize(extLMI,optval,opts.yalmip);
+      terms = 0;
+      for i=1:bminum
+          terms = terms + regterm(lmdc,vstruct(i).X, vstruct(i).Y,...
+                                       vstruct(i).X0,vstruct(i).Y0,lc);
+      end
+      optimize(extLMI,g+terms,opts.yalmip);
   else
       optimize(extLMI,g+v*pt,opts.yalmip);
   end
   
   %%% optimize by dilated LMI constraits as sufficient conditions of BMI
-%   optimize(extLMI,g+v*pt,opts.yalmip);
+  % optimize(extLMI,g+v*pt,opts.yalmip);
   tEnd = toc(tStart);
   
-  %%% debug
-%   if double(g) > gg
-%       gg=double(g);
-%       ggall=[ggall,gg];
-%       break
-%   end
   
   % update determined val
-  X0=double(X);
-  Y0=double(Y);
-  if isZ
-      Z0=double(Z);
+  for i=1:bminum
+      vstruct(i).X0=double(vstruct(i).X);
+      vstruct(i).Y0=double(vstruct(i).Y);
+      if isZ
+          vstruct(i).Z0=double(vstruct(i).Z);
+      end
+      if isM
+          vstruct(i).M0=double(vstruct(i).M);
+      end
   end
-%   eig(X0)
-%   eig(Z0)
+
   
   
   % show each step optimized value
@@ -531,19 +591,9 @@ end
 
 %% Data of solutions as output
 outopts.ggall = ggall; % original objective function
-outopts.ttall = ttall; % objective function for initial
+outopts.alphaall = ttall; % objective function for initial
 % outopts.tmall = [0,tmall]; % computational time
 outopts.tmall = tmall;
-
-% % optimal solution
-% vars.(inputname(3)) = gg; % original objective value
-% vars.(Xstr) = X0;         % decision matrix X
-% vars.(Ystr) = Y0;         % decision matrix Y
-% if isZ
-%   vars.('G') = Z0;       % decision matrix G
-% end
-% 
-
 
 
 % optimal solution
@@ -553,15 +603,18 @@ for i=1:length(sdpvarnamelist)
     data = evalin('caller',name);
     vars.(name) = value(data);
 end
-
-% vars
-
+%vars
 
 % initial solution
-vars.([Xstr '0']) = X0init;
-vars.([Ystr '0']) = Y0init;
-if isZ
-  vars.('G0') = Z0init;
+for i=1:bminum
+    vars.([vstruct(i).Xstr '_init']) = vstruct(i).X0init;
+    vars.([vstruct(i).Ystr '_init']) = vstruct(i).Y0init;
+    if isZ
+      vars.(['G' num2str(i) '_init']) = vstruct(i).Z0init;
+    end
+    if isM
+      vars.(['M' num2str(i) '_init']) = vstruct(i).M0init;
+    end
 end
 
 

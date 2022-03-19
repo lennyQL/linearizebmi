@@ -71,7 +71,7 @@ opts = solvebmiOptions;
 
 %%% SDP solver の設定
 yalmipopts=sdpsettings;
-yalmipopts.solver='sedumi';	% 使用する SDP solver
+yalmipopts.solver='sdpt3';	% 使用する SDP solver
 yalmipopts.verbose=0;         % 詳細表示
 
 %%% solvebmiのオプション:
@@ -175,7 +175,7 @@ opts.testg = 1;
 % vars.k
 % vars.p0
 % vars.k0
-% output.ttall'
+% output.alphaall'
 
 
 % gg2
@@ -185,7 +185,7 @@ opts.testg = 1;
 % vars2.p0
 % vars2.k0
 
-% output2.ttall'
+% output2.alphaall'
 
 % %
 % gg
@@ -245,10 +245,10 @@ grid on
 
 
 %%% alphaの最適化過程表示
-ttall = shapePlotData(output2.ttall,output3.ttall)
-% ttall = shapePlotData(output2.ttall,output3.ttall,output6.ttall)
+alphaall = shapePlotData(output2.alphaall,output3.alphaall)
+% alphaall = shapePlotData(output2.alphaall,output3.alphaall,output6.alphaall)
 figure;
-plot(ttall,'LineWidth',1.5);
+plot(alphaall,'LineWidth',1.5);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 legend('Sebe(2007)','Sebe(2018)','Sebe(2018) : penalty')
@@ -358,10 +358,10 @@ legend('methodd LMI (5)','methodd LMI (7)')
 grid on
 
 %%% alphaの最適化過程表示
-[ttall1,ttall2] = matchSize(output.ttall, output2.ttall);
-ttall = [ttall1; ttall2]';
+[alphaall1,alphaall2] = matchSize(output.alphaall, output2.alphaall);
+alphaall = [alphaall1; alphaall2]';
 figure;
-plot(ttall,'LineWidth',1);
+plot(alphaall,'LineWidth',1);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 % legend('Sebe(2007)','Sebe(2018)')
@@ -451,10 +451,10 @@ legend('methodd LMI (5)','methodd LMI (7)')
 grid on
 
 %%% alphaの最適化過程表示
-[ttall1,ttall2] = matchSize(output.ttall, output2.ttall);
-ttall = [ttall1; ttall2]';
+[alphaall1,alphaall2] = matchSize(output.alphaall, output2.alphaall);
+alphaall = [alphaall1; alphaall2]';
 figure;
-plot(ttall,'LineWidth',1);
+plot(alphaall,'LineWidth',1);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 legend('methodd LMI (5)','methodd LMI (7)')
@@ -463,7 +463,7 @@ grid on
 
 
 
-%% H2/Hinf問題 (未完成)
+%% H2/Hinf問題
 disp(newline)
 disp("#####*** H2/Hinf問題 ***#####")
 
@@ -493,9 +493,6 @@ yalmipopts.verbose=0;         % 詳細表示
 %%% solvebmiのオプション:
 opts = solvebmiOptions('yalmip',yalmipopts,... % yalmipのoptimizeのためのオプション
                        'lcmax', 200);          % 繰り返し実行する回数    
-% opts.showstep = 0;        % 各ステップを表示(bool)
-% opts.method = 1;          % 分割行列Gも最適化するか(bool)
-
 
 
 %%% BMI 最適化問題の定義
@@ -517,38 +514,14 @@ Flist = {Fstr1, Fstr2, Fstr3, Fstr4,"-p2","-pinf"};
 
 %%% 関数仕様test
 opts.method = 0;
-opts.regterm= 0;
+opts.penalty= 0;
 % solvebmi(Flist,{{'p2','k'},{'pinf','k'},{'pinf','k'}},g,opts);
 % [gg,vars,output] = solvebmi(Flist,{'pinf','k'},g,opts);
-[gg,vars,output] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},g,opts);
+% [gg,vars,output] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},g,opts);
 % ペナルティ項あり
-opts.method = 1;
-opts.regterm= 1;
+opts.method = 4;
+opts.penalty= 1e-6;
 [gg2,vars2,output2] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},g,opts);
-
-
-%%% 提案した solvebmi() で 逐次 LMI 化法を実行
-%%% 分割行列のタイプ別の比較
-% % 分割行列Gは定数
-% opts.method = 0;
-% opts.regterm= 0;
-% [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
-% %%%
-% % 分割行列Gは決定変数
-% opts.method = 1;
-% opts.regterm= 0;
-% [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
-
-%%% ペナルティ項ありなしの比較(分割行列は決定変数)
-% % ペナルティ項なし
-% opts.method = 0;
-% opts.regterm= 0;
-% [gg,vars,output] = solvebmi(Flist,{'p','k'},g,opts);
-% % ペナルティ項あり
-% opts.method = 1;
-% opts.regterm= 1;
-% [gg2,vars2,output2] = solvebmi(Flist,{'p','k'},g,opts);
-
 
 
 gg
@@ -572,9 +545,9 @@ legend('Sebe(2007)','Sebe(2018)')
 grid on
 
 % %%% alphaの最適化過程表示
-ttall = shapePlotData(output.ttall,output2.ttall)
+alphaall = shapePlotData(output.alphaall,output2.alphaall)
 figure;
-plot(ttall,'LineWidth',1);
+plot(alphaall,'LineWidth',1);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 legend('Sebe(2007)','Sebe(2018)')

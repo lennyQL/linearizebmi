@@ -300,32 +300,6 @@ end
 
 
 
-%%% vlistの{X,Y}が本当にFstrの決定変数に
-%%% なっているか調べたい(エラー処理用)
-%
-%%% 極配置でYのエラーチェックが通らない
-%%% 構造を持ったsdpvarのreplaceがうまくいかない
-% testBMI
-% Y
-% Y0
-% zeros(size(Y))
-% replace(testBMI,X,X0)
-% replace(testBMI,Y,Y0)
-% isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI)))
-% is(replace(testBMI,X,zeros(size(X))),'linear')
-
-% X,Yが記述制約のmember(sdpvar)かどうか調べる
-% if isequal(replace(testBMI,X,zeros(size(X))),zeros(size(testBMI))) ||...
-%    is(replace(testBMI,X,zeros(size(X))),'linear') 
-% else
-%     error("'%s' is not a member in this constraint.",Xstr);
-% end
-% if isequal(replace(testBMI,Y,zeros(size(Y))),zeros(size(testBMI))) ||...
-%    is(replace(testBMI,Y,zeros(size(Y))),'linear') 
-% else
-%     error("'%s' is not a member in this constraint.",Ystr);
-% end
-
 %% 字句解析の前処理(pre-process)
 
 % 正規表現用変数の初期化
@@ -673,6 +647,7 @@ end
 gBMI.sdpvarname = unique(sdpvarnamelist,'stable');
 
 
+
 %% そもそもLMIならそのまま出力
 
 % testBMI
@@ -686,6 +661,13 @@ if is(testBMI,'linear')
     return
 end
 
+%% vlistの{X,Y}が本当にFstrの決定変数になっているか調べる(エラー処理用)
+
+if isempty(find(gBMI.sdpvarname == Xstr))
+    error("'%s' is not a variable in this BMI: \n\n[%s]",Xstr,S);
+elseif isempty(find(gBMI.sdpvarname == Ystr))
+    error("'%s' is not a variable in this BMI: \n\n[%s]",Ystr,S);
+end
 
 
 %% 線形項と双線形項の分離
