@@ -793,7 +793,7 @@ for col=1:size(orgmatrix,1)
     for row=1:size(orgmatrix,2)
         % 各行列要素
         % disp(col+" "+row)
-        termlist = orgmatrix{col,row};
+        termlist = orgmatrix{col,row}
         %
         xidx = 0; % 双線形項におけるXstrの位置
         yidx = 0; % 双線形項におけるYstrの位置
@@ -802,7 +802,7 @@ for col=1:size(orgmatrix,1)
 %         Rlist = {}; 
         for i=1:size(termlist,1)
             % 要素の各項
-            term = termlist{i,1};
+            term = termlist{i,1}
             for j=1:size(term,2)
                 % 項のそれぞれの変数
                 var = term{1,j};
@@ -855,6 +855,8 @@ for col=1:size(orgmatrix,1)
             % L,N,Rの更新
             % 未完成(仮)
             % 双線形項が1行目にある場合にしか対応できない
+            disp("========")
+            l,n,r
             if col == 1                
                 if isempty(L)
                     L = updateList(L,l);
@@ -882,7 +884,7 @@ end
 
 % デバッグ用:
 % Q
-% L,N,R
+L,N,R
 
 
 %% 逐次LMIに変形してCalc
@@ -952,7 +954,7 @@ for i=1:size(L,1)
         if var == "1eye"
             leval = leval * eye(size(X,1));
         elseif var == "0zero"
-            leval = leval * zeros(rowsize(i),size(Leval,2));
+            leval = leval * zeros(rowsize(i),size(X,1));
         elseif var == "-"
             leval = -leval;
         else 
@@ -1005,7 +1007,7 @@ for i=1:size(R,1)
         if var == "1eye"
             reval = reval * eye(size(Y,2));
         elseif var == "0zero"
-            reval = reval * zeros(size(Reval,1),rowsize(i));
+            reval = reval * zeros(size(Y,2),rowsize(i));
         elseif var == "-"
             reval = -reval;
         else
@@ -1023,9 +1025,9 @@ end
 % Reval
 
 
-% Leval
-% Neval
-% Reval
+Leval
+Neval
+Reval
 % X
 % Y
 

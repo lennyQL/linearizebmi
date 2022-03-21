@@ -498,20 +498,22 @@ disp(newline)
 disp("###*** パターン ***###")
 disp("# {X,Y}の入力順番")
 
-P=sdpvar(2,2);
-K=sdpvar(2,2);
+P=sdpvar(n,n);
+K=sdpvar(n,n);
 P0=rand(size(P));
 K0=rand(size(K));
-K2=sdpvar(2,2);
+
 
 % Fstr = "P*K+K*P";
 % Fstr = "P*K0*K+K*K0'*P";
-Fstr = "P*K0*K+(P*K0*K)'";
+% Fstr = "P*K0*K+(P*K0*K)'";
+% Fstr = "[eye(n),P*K;(P*K)',eye(n)]";
+Fstr = "[eye(n),(P*K)';P*K,eye(n)]";
 
-[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
+[LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
 % [LMIauto, ~, out] = linearizebmi(Fstr,{"K'","P'"},{"K0'","P0'"})
 
-
+% test = [zeros(n); eye(n)]*P*K*[eye(n) zeros(n)]
 
 %% Webマニュアル用 (極配置)
 disp(newline)
