@@ -65,9 +65,17 @@ for i=1:vlen
     sizeY = size(Y);
     vstruct(i).sizeX = sizeX;
     vstruct(i).sizeY = sizeY;
-    % presolve value(dummy)
-    X0dummy = sdpvar(sizeX(1),sizeX(2));
-    Y0dummy = sdpvar(sizeY(1),sizeY(2));
+    % presolve value (dummy)
+    if issymmetric(X)
+        X0dummy = sdpvar(sizeX(1),sizeX(2),'symmetric');
+    else
+        X0dummy = sdpvar(sizeX(1),sizeX(2),'full');
+    end
+    if issymmetric(Y)
+        Y0dummy = sdpvar(sizeY(1),sizeY(2),'symmetric');
+    else
+        Y0dummy = sdpvar(sizeY(1),sizeY(2),'full');
+    end
     vstruct(i).X0dummy = X0dummy;
     vstruct(i).Y0dummy = Y0dummy;
     % info about Z
@@ -597,7 +605,6 @@ outopts.tmall = tmall;
 
 
 % optimal solution
-% sdpvarnamelist
 for i=1:length(sdpvarnamelist)
     name = sdpvarnamelist(i);
     data = evalin('caller',name);

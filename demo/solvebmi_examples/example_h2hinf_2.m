@@ -96,9 +96,9 @@ yalmip('clear');
 opts = solvebmiOptions('yalmip',sdpsettings);
 opts.yalmip.verbose=0;
 %
-opts.yalmip.solver='sdpt3';	% SDP solver
+% opts.yalmip.solver='sedumi';	% SDP solver
 %
-% opts.yalmip.solver='sdpt3';	% SDP solver
+opts.yalmip.solver='sdpt3';	% SDP solver
 opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.gaptol',1e-8);
 opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.inftol',1e-10);
 opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.steptol',1e-10);
@@ -307,7 +307,6 @@ legend(lgd);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 title(probid);
-xticks(0:1:1000)
 grid on;
 hold off;
 

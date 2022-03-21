@@ -623,12 +623,6 @@ for col=1:size(smatrix,1)
                 try
                     data = evalin('base',var);
                     if isequal(class(data),'sdpvar')
-                        %
-                        % use var in function args
-                        if regexp(var, "\(.*\)")
-                            var = regexprep(var, "\w*\(","");
-                            var = regexprep(var, "\)","");
-                        end
                         sdpvarnamelist = [sdpvarnamelist, var];
                     end
                 catch
@@ -639,14 +633,15 @@ for col=1:size(smatrix,1)
     end
 end
 
-
 % sdpvarnamelist
 % unique(sdpvarnamelist,'stable')
 
 % オプションとしてsdpvar変数名を出力
 gBMI.sdpvarname = unique(sdpvarnamelist,'stable');
-
-
+if is(testBMI,'linear')
+    gBMI.sdpvarname = regexprep(gBMI.sdpvarname, "\w*\(","");
+    gBMI.sdpvarname = regexprep(gBMI.sdpvarname, "\)","");
+end
 
 %% そもそもLMIならそのまま出力
 
@@ -668,6 +663,11 @@ if isempty(find(gBMI.sdpvarname == Xstr))
 elseif isempty(find(gBMI.sdpvarname == Ystr))
     error("'%s' is not a variable in this BMI: \n\n[%s]",Ystr,S);
 end
+
+% use var in function args
+gBMI.sdpvarname = regexprep(gBMI.sdpvarname, "\w*\(","");
+gBMI.sdpvarname = regexprep(gBMI.sdpvarname, "\)","");
+
 
 
 %% 線形項と双線形項の分離
@@ -812,6 +812,14 @@ for col=1:size(orgmatrix,1)
                     yidx = j;
                 end
             end    
+            % (Error) (X,Y)の入力された順番が逆
+            if xidx > yidx
+                message = ['The order of input variables may be wrong. '...
+                           'Try to change the input order:'...
+                           '\n'...
+                           char("{'%s','%s'} -> {'%s','%s'}")];
+                error(message,Xstr,Ystr,Ystr,Xstr);
+            end
             % P,K(X,Y)でリストを3分割する
             l = term(1:xidx-1);
             n = term(xidx+1:yidx-1);
@@ -1229,15 +1237,15 @@ L_XNY_R = [];
 for i=1:length(Lchar)
     list = [];
     for j=1:length(Rchar)
-        if regexp(Lchar(i), "zeros")
+        if contains(Lchar(i), "zeros")
             l = char(Lchar(i));
-        elseif regexp(Rchar(i), "zeros")
+        elseif contains(Rchar(i), "zeros")
             l = char(Rchar(i));
-        elseif regexp(Lchar(i), "eye")
+        elseif contains(Lchar(i), "eye")
             l = ['comp*' char(Rchar(j))];
-        elseif regexp(Rchar(i), "eye")
+        elseif contains(Rchar(i), "eye")
             l = ['comp*' char(Rchar(j))];
-        elseif regexp(Lchar(i), "eye") && regexp(Rchar(i), "eye")
+        elseif contains(Lchar(i), "eye") && contains(Rchar(i), "eye")
             l = 'comp';
         else
             l = [char(Lchar(i)) '*comp*' char(Rchar(j))];
@@ -1255,7 +1263,7 @@ for i=1:size(HEQchar,1)
         heq = regexprep(heq,Xstr,string(['(' Xchar '-' X0char ')']));
         heq = regexprep(heq,Ystr,string(['(' Ychar '-' Y0char ')']));
         
-        if regexp(L_XNY_R(i,j), "zeros")
+        if contains(L_XNY_R(i,j), "zeros")
             l = char(heq);
         else
             l = [char(heq) '+' char(L_XNY_R(i,j))];
@@ -1268,13 +1276,13 @@ end
 % LXN
 LXN = [];
 for i=1:length(Lchar)
-    if regexp(Lchar(i), "zeros")
+    if contains(Lchar(i), "zeros")
         l = regexprep( Lchar(i), ",\w)", ","+string(size(Neval,2))+")" );
-    elseif regexp(Lchar(i), "eye")
+    elseif contains(Lchar(i), "eye")
         l = ['(' Xchar '-' X0char ')*' char(Nchar)];
-    elseif regexp(Nchar(i), "eye")
+    elseif contains(Nchar(i), "eye")
         l = [char(Lchar(i)) '*(' Xchar '-' X0char ')'];
-    elseif regexp(Lchar(i), "eye") && regexp(Rchar(i), "eye")
+    elseif contains(Lchar(i), "eye") && contains(Rchar(i), "eye")
         l = [Xchar '-' X0char];
     else
         l = [char(Lchar(i)) '*(' Xchar '-' X0char ')*' char(Nchar)];
@@ -1288,13 +1296,13 @@ switch opts.method
         % GYR
         GYR = [];
         for i=1:length(Rchar)
-            if regexp(Rchar(i), "zeros")
+            if contains(Rchar(i), "zeros")
                 l = char(Rchar(i));
-            elseif regexp(Gchar, "eye")
+            elseif contains(Gchar, "eye")
                 l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
-            elseif regexp(Rchar(i), "eye")
+            elseif contains(Rchar(i), "eye")
                 l = [char(Gchar) '*(' Ychar '-' Y0char ')'];
-            elseif regexp(Gchar, "eye") & regexp(Rchar(i), "eye")
+            elseif contains(Gchar, "eye") & contains(Rchar(i), "eye")
                 l = [Ychar '-' Y0char];
             else
                 l = [char(Gchar) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];
@@ -1311,13 +1319,13 @@ switch opts.method
         Zchar = string(Zstr);
         Z0char = string(Z0str);
         for i=1:length(Rchar)
-            if regexp(Rchar(i), "zeros")
+            if contains(Rchar(i), "zeros")
                 l = char(Rchar(i));
-            elseif regexp(Z0char, "eye")
+            elseif contains(Z0char, "eye")
                 l = ['(' Ychar '-' Y0char ')*' char(Rchar(i))];
-            elseif regexp(Rchar(i), "eye")
+            elseif contains(Rchar(i), "eye")
                 l = [char(Z0char) '*(' Ychar '-' Y0char ')'];
-            elseif regexp(Z0char, "eye") & regexp(Rchar(i), "eye")
+            elseif contains(Z0char, "eye") & contains(Rchar(i), "eye")
                 l = [Ychar '-' Y0char];
             else
                 l = [char(Z0char) '*(' Ychar '-' Y0char ')*' char(Rchar(i))];

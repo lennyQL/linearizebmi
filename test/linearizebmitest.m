@@ -498,13 +498,18 @@ out.sdpvarname
 disp(newline)
 disp("###*** Webマニュアル用 (極配置) ***###")
 
-P=sdpvar(n,n);
-K=sdpvar(m2,p2, 'full');
-P0=rand(size(X));
-K0=rand(size(Y));
+n=nx;
+m1=nw;
+m2=nu;
+p1=nz;
+p2=ny;
+
+P=sdpvar(n,n)
+K=sdpvar(m2,p2, 'full')
+P0=rand(size(P));
+K0=rand(size(K));
 % P0=eye(size(X));
 % K0=eye(size(Y));
-
 
 
 % Fstr = "X*A+X*B2*Y*C2+A'*X'+C2'*Y'*B2'*X'";
@@ -513,11 +518,11 @@ Fstr = "P*(A+B2*K*C2)+(P*(A+B2*K*C2))'";
 G=eye(size(G));
 [LMIauto, LMIstr] = linearizebmi(Fstr,{'P','K'},{'P0','K0'},'G')
 
-G=sdpvar(size(Y,1),size(Y,1),'full');
+G=sdpvar(size(K,1),size(K,1),'full');
 H=rand(size(G));
 [LMIauto, Lstr] = linearizebmi(Fstr,{'P','K','G'},{'P0','K0','H'})
 
-G=sdpvar(size(Y,1),size(Y,1),'full');
+G=sdpvar(size(K,1),size(K,1),'full');
 H=rand(size(G));
 M=sdpvar(m2,m2);
 M0=eye(size(M));
