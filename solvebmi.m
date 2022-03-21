@@ -22,8 +22,9 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 %     vars:   some data about initial solution and optimal solution
 % 
 % !TODO: 
-%   - how to input 'G' and 'opts'
+%   - how to input constant 'G' data
 %       - because 'G' will be ignored as input
+%       - in some method, fixed 'G' is required
 
 
 %% get input value

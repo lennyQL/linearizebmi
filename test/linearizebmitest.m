@@ -493,6 +493,25 @@ is(LMIauto,'linear')
 
 out.sdpvarname
 
+%% {X,Y}の入力順番
+disp(newline)
+disp("###*** パターン ***###")
+disp("# {X,Y}の入力順番")
+
+P=sdpvar(2,2);
+K=sdpvar(2,2);
+P0=rand(size(P));
+K0=rand(size(K));
+K2=sdpvar(2,2);
+
+% Fstr = "P*K+K*P";
+% Fstr = "P*K0*K+K*K0'*P";
+Fstr = "P*K0*K+(P*K0*K)'";
+
+[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
+% [LMIauto, ~, out] = linearizebmi(Fstr,{"K'","P'"},{"K0'","P0'"})
+
+
 
 %% Webマニュアル用 (極配置)
 disp(newline)

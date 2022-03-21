@@ -658,9 +658,9 @@ end
 
 %% vlistの{X,Y}が本当にFstrの決定変数になっているか調べる(エラー処理用)
 
-if isempty(find(gBMI.sdpvarname == Xstr))
+if isempty(find(gBMI.sdpvarname==Xstr)) && isempty(find(gBMI.sdpvarname+"'"==Xstr))
     error("'%s' is not a variable in this BMI: \n\n[%s]",Xstr,S);
-elseif isempty(find(gBMI.sdpvarname == Ystr))
+elseif isempty(find(gBMI.sdpvarname==Ystr)) && isempty(find(gBMI.sdpvarname+"'"==Ystr))
     error("'%s' is not a variable in this BMI: \n\n[%s]",Ystr,S);
 end
 
@@ -727,7 +727,7 @@ for col=1:size(smatrix,1)
 end
 % デバッグ用:
 % linearmatrix
-% binearmatrix
+binearmatrix
 
 
 %% 双線形項のheの分離
@@ -747,10 +747,10 @@ for col=1:size(binearmatrix,1)
         termlist = binearmatrix{col,row};
         for i=1:size(termlist,1)
             % 要素の各項
-            term = termlist{i,1};
+            term = termlist{i,1}
             for j=1:size(term,2)
                 % 項のそれぞれの変数
-                var = term{1,j};
+                var = term{1,j}
                 if regexp(var, "\'")
                     % var
                     % hetermlist: 転置あり
@@ -777,8 +777,8 @@ for col=1:size(binearmatrix,1)
 end
 
 % デバッグ用:
-% orgmatrix
-% hematrix
+orgmatrix
+hematrix
 
 
 %% BMI一般化，Q,L,N,Rの取得
@@ -818,12 +818,23 @@ for col=1:size(orgmatrix,1)
                            'Try to change the input order:'...
                            '\n'...
                            char("{'%s','%s'} -> {'%s','%s'}")];
-                error(message,Xstr,Ystr,Ystr,Xstr);
+                warning('on')
+                warning(message,Xstr,Ystr,Ystr,Xstr)
+                % X,Yを入れ替える
+                [yidx,xidx] = deal(xidx,yidx);
+                [Y,X] = deal(X,Y);
+                [Y0,X0] = deal(X0,Y0);
+                [Ystr,Xstr] = deal(Xstr,Ystr);
+                [Y0str,X0str] = deal(X0str,Y0str);
+                if isequal(G,eye(size(X,1))) 
+                    Gchar = [func2str(@eye) '(' num2str(size(Y,1)) ')'];
+                    G = eye(size(Y,1));
+                end
             end
             % P,K(X,Y)でリストを3分割する
-            l = term(1:xidx-1);
-            n = term(xidx+1:yidx-1);
-            r = term(yidx+1:end);
+            l = term(1:xidx-1)
+            n = term(xidx+1:yidx-1)
+            r = term(yidx+1:end)
             % "PK"の場合： "1*P*1*K*1"と処理する
             if isempty(l) 
                 l = {"1eye"};
@@ -1025,8 +1036,12 @@ Bieval = Leval * X * Neval * Y * Reval;
 % Bieval
 
 % BMIの値の計算, 多分使わない，デバッグ用
+% if isequal(cellfun(@isempty,hematrix),ones(size(hematrix)))
+%     BMIeval = Qeval + Bieval;
+% else
+%     BMIeval = Qeval + Bieval + Bieval';
+% end
 BMIeval = Qeval + Bieval + Bieval';
-
 
 
 % 拡大した LMI 条件, heなし

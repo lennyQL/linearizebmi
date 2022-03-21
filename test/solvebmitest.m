@@ -517,8 +517,8 @@ opts.method = 0;
 opts.penalty= 0;
 % solvebmi(Flist,{{'p2','k'},{'pinf','k'},{'pinf','k'}},g,opts);
 % [gg,vars,output] = solvebmi(Flist,{'pinf','k'},g,opts);
-% [gg,vars,output] = solvebmi(Flist,{{'k','p2'},{'k','pinf'}},g,opts);
-solvebmi(Flist,{{'p2','k'},{'pinf','k'}},trace(R),opts); 
+[gg,vars,output] = solvebmi(Flist,{{"k'","p2'"},{'k','pinf'}},g,opts);
+% solvebmi(Flist,{{'p2','k'},{'pinf','k'}},trace(R),opts); 
 % ペナルティ項あり
 opts.method = 4;
 opts.penalty= 1e-6;
