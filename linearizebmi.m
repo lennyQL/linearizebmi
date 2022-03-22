@@ -792,7 +792,7 @@ for col=1:size(orgmatrix,1)
     % 各行ベクトル
     for row=1:size(orgmatrix,2)
         % 各行列要素
-        % disp(col+" "+row)
+        disp(col+" "+row)
         termlist = orgmatrix{col,row}
         %
         xidx = 0; % 双線形項におけるXstrの位置
@@ -874,6 +874,7 @@ for col=1:size(orgmatrix,1)
 %         L = updateList(L,Llist);
 %         N = updateList(N,Nlist);
 %         R = updateList(R,Rlist);
+        L,N,R
     end
     
     % 未完成(仮)
