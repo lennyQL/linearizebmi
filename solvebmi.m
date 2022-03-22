@@ -30,18 +30,52 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 %% get input value
 % input as char
 
+% define S size (length of input constraints)
+% class(S)
+if isequal(class(S),'cell')
+    sizeS = length(S);
+elseif isequal(class(S),'string')
+    sizeS = 1;
+else
+    error("varargin{1} must be 'cell' or 'string' class");
+end
+% sizeS
+
+
 % (vlen): Number of decision variables set (Number of input BMIs)
+vlen = 0;
 for i=1:length(vlist)
     if length(vlist{i}) == 1
         vlen = 1;
+        sizeV = 1;
+        break
     else
-        vlen = length(vlist);
+        sizeV = length(vlist);
+        if ~isempty(vlist{i})
+            vlen = vlen + 1;
+        end
     end
 end
+
+
+% Size S and vlist must be same
+if ~isequal(sizeS,sizeV) && sizeV > 1
+    error("Length of varargin{1} and varargin{2} must be the same")
+end
+
 
 if vlen == 1 && isa(vlist{1},'char')
     vlist = {vlist};
 end
+
+% vlist for bmi
+bmivlist = {};
+for i=1:sizeV
+    if ~isempty(vlist{i})
+        bmivlist = cat(1,bmivlist,vlist(i));
+    end
+end
+
 
 % (vstruct): Info about decision variables set
 % !TODO: vstruct need to be a class (maybe)
@@ -49,10 +83,10 @@ vstruct(1:vlen) = struct;
 for i=1:vlen
     % var str
     try
-        Xstr = char(vlist{i}{1});
-        Ystr = char(vlist{i}{2});
+        Xstr = char(bmivlist{i}{1});
+        Ystr = char(bmivlist{i}{2});
     catch 
-        error('varargin{2} must be the char list');
+        error('varargin{2} must be the char list (length:2)');
     end
     vstruct(i).Xstr = Xstr;
     vstruct(i).Ystr = Ystr;
@@ -136,17 +170,6 @@ g = optg;
 
 %% linearize bmi
 
-% define S size (length of input constraints)
-% class(S)
-if isequal(class(S),'cell')
-    sizeS = length(S);
-elseif isequal(class(S),'string')
-    sizeS = 1;
-else
-    error("varargin{1} must be 'cell' or 'string' class");
-end
-% sizeS
-
 % S
 LMIlist = [];        % constraints
 sdpvarnamelist = []; % varnames
@@ -192,6 +215,10 @@ for i=1:sizeS
     
     % declare LMI constraints
     if gLMI.isbmi
+        if vlen > 1 && isempty(vlist{i})
+            error("varargin{2}{%d} must not be empty cell list.\n\n(Corresponded BMI):\n%s",i,Fstr)
+        end
+        
         vstruct(vstep).dLMI = LMIauto;
         vstruct(vstep).BMIopt = gLMI;
         vstruct(vstep).orgBMI = BMI;
@@ -200,6 +227,9 @@ for i=1:sizeS
         end
         bminum = bminum + 1;
     else
+        if vlen > 1 && ~isempty(vlist{i}) 
+            error("varargin{2}{%d} must be empty cell list '{}'.\n\n(Corresponded LMI):\n%s",i,Fstr)
+        end
         LMIlist = [LMIlist, LMIauto<=-1e-6];
     end
     

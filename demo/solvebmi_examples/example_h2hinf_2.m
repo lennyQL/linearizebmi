@@ -279,7 +279,7 @@ for tc=1:length(lgd)
   % Execute solvebmi:
   % Decision variables       {{'p2','k'},{'pinf','k'}}
   % must be corresponding to {Fstr1,Fstr2}
-  [gg{tc},vars{tc},output{tc}] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},trace(R),opts);
+  [gg{tc},vars{tc},output{tc}] = solvebmi(Flist,{{'p2','k'},{'pinf','k'},{},{}},trace(R),opts);
 end
 
 

@@ -658,9 +658,10 @@ end
 
 %% vlistの{X,Y}が本当にFstrの決定変数になっているか調べる(エラー処理用)
 
-if isempty(find(gBMI.sdpvarname==Xstr)) && isempty(find(gBMI.sdpvarname+"'"==Xstr))
+% isempty(find(gBMI.sdpvarname==Xstr)) && isempty(find(gBMI.sdpvarname+"'"==Xstr))
+if isempty(find(gBMI.sdpvarname==Xstr))
     error("'%s' is not a variable in this BMI: \n\n[%s]",Xstr,S);
-elseif isempty(find(gBMI.sdpvarname==Ystr)) && isempty(find(gBMI.sdpvarname+"'"==Ystr))
+elseif isempty(find(gBMI.sdpvarname==Ystr))
     error("'%s' is not a variable in this BMI: \n\n[%s]",Ystr,S);
 end
 
@@ -727,7 +728,7 @@ for col=1:size(smatrix,1)
 end
 % デバッグ用:
 % linearmatrix
-binearmatrix
+% binearmatrix
 
 
 %% 双線形項のheの分離
@@ -747,10 +748,10 @@ for col=1:size(binearmatrix,1)
         termlist = binearmatrix{col,row};
         for i=1:size(termlist,1)
             % 要素の各項
-            term = termlist{i,1}
+            term = termlist{i,1};
             for j=1:size(term,2)
                 % 項のそれぞれの変数
-                var = term{1,j}
+                var = term{1,j};
                 if regexp(var, "\'")
                     % var
                     % hetermlist: 転置あり
@@ -777,8 +778,8 @@ for col=1:size(binearmatrix,1)
 end
 
 % デバッグ用:
-orgmatrix
-hematrix
+% orgmatrix
+% hematrix
 
 
 %% BMI一般化，Q,L,N,Rの取得
@@ -787,22 +788,21 @@ L = {}; % 双線形項の定数行列(左)
 N = {}; % 双線形項の定数行列(中)
 R = {}; % 双線形項の定数行列(右)
 
-
+% ブロック行列の要素ごとの係数行列L,N,R
+% 各要素の双線形項が単項しかないことが前提!!!
+comat(1:size(orgmatrix,1),1:size(orgmatrix,2)) = struct;
 for col=1:size(orgmatrix,1)
     % 各行ベクトル
     for row=1:size(orgmatrix,2)
         % 各行列要素
-        disp(col+" "+row)
-        termlist = orgmatrix{col,row}
+        % disp(col+" "+row)
+        termlist = orgmatrix{col,row};
         %
         xidx = 0; % 双線形項におけるXstrの位置
         yidx = 0; % 双線形項におけるYstrの位置
-%         Llist = {}; % 一時リスト
-%         Nlist = {}; 
-%         Rlist = {}; 
         for i=1:size(termlist,1)
             % 要素の各項
-            term = termlist{i,1}
+            term = termlist{i,1};
             for j=1:size(term,2)
                 % 項のそれぞれの変数
                 var = term{1,j};
@@ -815,10 +815,10 @@ for col=1:size(orgmatrix,1)
             % (Error) (X,Y)の入力された順番が逆
             if xidx > yidx
                 message = ['The order of input variables may be wrong. '...
-                           'Try to change the input order:'...
+                           'We automatically try to change the input order:'...
                            '\n'...
                            char("{'%s','%s'} -> {'%s','%s'}")];
-                warning('on')
+                % warning('on')
                 warning(message,Xstr,Ystr,Ystr,Xstr)
                 % X,Yを入れ替える
                 [yidx,xidx] = deal(xidx,yidx);
@@ -832,9 +832,9 @@ for col=1:size(orgmatrix,1)
                 end
             end
             % P,K(X,Y)でリストを3分割する
-            l = term(1:xidx-1)
-            n = term(xidx+1:yidx-1)
-            r = term(yidx+1:end)
+            l = term(1:xidx-1);
+            n = term(xidx+1:yidx-1);
+            r = term(yidx+1:end);
             % "PK"の場合： "1*P*1*K*1"と処理する
             if isempty(l) 
                 l = {"1eye"};
@@ -855,37 +855,84 @@ for col=1:size(orgmatrix,1)
             % L,N,Rの更新
             % 未完成(仮)
             % 双線形項が1行目にある場合にしか対応できない
-            disp("========")
-            l,n,r
-            if col == 1                
-                if isempty(L)
-                    L = updateList(L,l);
-                end
-                N = {n};
-                R = updateList(R,r,1);
-            end
+%             if col == 1                
+%                 if isempty(L)
+%                     L = updateList(L,l);
+%                 end
+%                 N = {n};
+%                 R = updateList(R,r,1);
+%             end
+            comat(col,row).L = l;
+            comat(col,row).N = n;
+            comat(col,row).R = r;
         end
         
         % 未完成(仮)
-        if col == 1 && isempty(termlist)
-            R = updateList(R,{"0zero"},1);
+%         if col == 1 && isempty(termlist)
+%             R = updateList(R,{"0zero"},1);
+%         end
+        % 要素がゼロの場合各係数行列もゼロ
+        if isempty(termlist)
+            comat(col,row).L = {"0zero"};
+            comat(col,row).N = {"0zero"};
+            comat(col,row).R = {"0zero"};
         end
-        
-%         L = updateList(L,Llist);
-%         N = updateList(N,Nlist);
-%         R = updateList(R,Rlist);
-        L,N,R
+
+%         comat(col,row)
     end
     
     % 未完成(仮)
-    if col >= 2
-        L = updateList(L,{"0zero"},1);
-    end
+%     if col >= 2
+%         L = updateList(L,{"0zero"},1);
+%     end
 end
+
+
+% ブロック行列全体の係数行列L,N,Rを構築する
+% 行と列ぞれぞれの整合性を考える
+pren={"0zero"}; % Nはすべての要素で共通(ブロック行列でない)
+for col=1:size(comat,1)
+    % 各行ベクトル
+    prel={"0zero"};
+    prer={"0zero"};
+    for row=1:size(comat,2)
+        % 各行列要素
+        % disp(col+" "+row)
+        % comat(col,row)
+        
+        if ~isequal(comat(col,row).L,{"0zero"})
+            if ~isequal(prel,{"0zero"}) && ~isequal(comat(col,row).L,prel)
+                error(['We cannot convert this BMI to dilated LMI, \n'...
+                      'because of coefficient matrices in the left side of bilinear terms:\n\n%s'],S)
+            end 
+            prel = comat(col,row).L;
+        end
+        
+        if ~isequal(comat(col,row).N,{"0zero"})
+            if ~isequal(pren,{"0zero"}) && ~isequal(comat(col,row).N,pren)
+                error(['We cannot convert this BMI to dilated LMI: \n'...
+                       'because of coefficient matrices in the middle of bilinear terms:\n\n%s'],S)
+            end 
+            pren = comat(col,row).N;
+        end
+        
+        if ~isequal(comat(row,col).R,{"0zero"})
+            if ~isequal(prer,{"0zero"}) && ~isequal(comat(row,col).R,prer)
+                error(['We cannot convert this BMI to dilated LMI: \n'...
+                      'because of coefficient matrices in the right side of bilinear terms:\n\n%s'],S)
+            end 
+            prer = comat(row,col).R;
+        end
+    end
+    L = updateList(L,prel,1);
+    R = updateList(R,prer,1);
+end
+N = {pren};
+
 
 % デバッグ用:
 % Q
-L,N,R
+% L,N,R
 
 
 %% 逐次LMIに変形してCalc
@@ -934,15 +981,6 @@ end
 
 % matlistとothermatlistの計算結果を合計する
 Qeval = Qeval + Qothereval;
-
-
-
-% 受け取った引数がそもそもLMIの場合，そのまま計算結果を返す
-% if isequal(cellfun(@isempty,binearmatrix),ones(size(binearmatrix)))
-%     LMI = Qeval;
-%     BMI = LMI;
-%     return
-% end
 
 
 % 双線形項の左定数Lの計算
@@ -1026,9 +1064,9 @@ end
 % Reval
 
 
-Leval
-Neval
-Reval
+% Leval
+% Neval
+% Reval
 % X
 % Y
 

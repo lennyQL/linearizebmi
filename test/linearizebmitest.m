@@ -502,6 +502,7 @@ P=sdpvar(n,n);
 K=sdpvar(n,n);
 P0=rand(size(P));
 K0=rand(size(K));
+X=sdpvar(n,n);
 
 
 % Fstr = "P*K+K*P";
@@ -509,10 +510,13 @@ K0=rand(size(K));
 % Fstr = "P*K0*K+(P*K0*K)'";
 % Fstr = "[eye(n),P*K;(P*K)',eye(n)]";
 Fstr = "[eye(n),(P*K)';P*K,eye(n)]";
+% Fstr = "[eye(n),(P*K)';P*K0*K,P*P0*K]";
 
+warning("on")
 [LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
-% [LMIauto, ~, out] = linearizebmi(Fstr,{"K'","P'"},{"K0'","P0'"})
+[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
 
+% linearizebmi(Fstr,{},{})
 % test = [zeros(n); eye(n)]*P*K*[eye(n) zeros(n)]
 
 %% Webマニュアル用 (極配置)
