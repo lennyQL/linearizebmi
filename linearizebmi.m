@@ -46,6 +46,7 @@ function [LMI,LMIstr,gBMI,BMI] = linearizebmi(S, vlist, v0list, G, opts)
 %       ・ベクトル同士の積による行列の記述が可能
 %
 
+warning("on")
 
 %% 関数引数のデータを取得
 

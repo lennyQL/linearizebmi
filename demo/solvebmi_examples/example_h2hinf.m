@@ -1,83 +1,98 @@
 %%% ---------------------------------------------------------- %%%
-% H_2/H_inf static output feedback control problem
-% To run this example, 
-% required SDP solver 'SDPT3'
+% H_2/H_inf dynamical output feedback control problem
+%
+% The example is borrowed from
+%    T. Shimomura and T. Fujii,
+%    Multiobjective control via successive over-bounding of quadratic terms.
+%    International Journal of Robust and Nonlinear Control,
+%    15, pp. 363–381, 2005.
 % 
-% Used method (research):
+% Compared method (research):
 %     1. Sebe (2007)
 %        - decomposition matrix 'G' is a constant matrix
-%        
 %     2. Sebe (2018)
 %        - decomposition matrix 'G' is a decision matrix
 %        - change parameter 't' in decomposition matrix
-%     
 %     3. Shimomura & Fujii (2005)
 %        - overbounding approximation by 
 %          completing the square with constant matrix
-%     
 %     4. Lee & Hu (2016)
 %        - overbounding approximation by 
 %          completing the square with decision matrix
-%     
 %     5. Ren et al. (2021)
 %        - combining Sebe (2007) and Shimomura & Fujii (2005) 
 %          for decomposition matrix
 %%% ---------------------------------------------------------- %%%
 
 
-
 %%% Define problem
 % Define plant data
-%  REFFERENCE:
-%  S. N. Singh and A. A. R. Coelho,
-%  "Nonlinear control of mismatched uncertain linear systems
-%   and application to control of aircraft",
-%  Journal of Dynamic Systems, Measurement and Control, 106,
-%  pp.203-210, 1984
-a=[-0.0366,  0.0271,  0.0188, -0.4555;...
-    0.0482, -1.01,    0.0024, -4.0208;...
-    0.1002,  0.3681, -0.7070,  1.42;...
-    0,       0,       1,       0];
-b1=[4.678e-2, 0; 4.572e-2, 9.88e-3; 4.369e-2, 1.11e-3; -2.179e-2, 0];
-b2=[0.4422 0.1761;3.5446 -7.5922;-5.52 4.49;0 0];
-c1=(1/sqrt(2))*[2,0,0,0;0,1,0,0];
-c2=[0 1 0 0];
+a =[0,0,1,0;0,0,0,1;-5/4,5/4,0,0;5/4,-5/4,0,0];
+b2=[0;0;1;0];
+c2=[0,1,0,0];
+d22=0;
 nx=size(a,1);
-nw=size(b1,2);
 nu=size(b2,2);
-nz=size(c1,1);
 ny=size(c2,1);
-d11=zeros(nz,nw);
-d12=(1/sqrt(2))*[1, 0; 0, 1];
-d21=zeros(ny,nw);
 
-% Or, use data set from COMPleib
-probid='HE1';
-% [a,b1,b2,c1,c2,d11,d12,d21,nx,nw,nu,nz,ny]=COMPleib(probid);
+% for H2 performance
+b0=[0;0;0;1];
+c0=[0,1,0,0;0,0,0,0];
+d00=[0;0];
+d02=[0;2];
+d20=1/10;
+psys2=ss(a,[b0,b2],[c0;c2],[d00,d02;d20,d22]);
+
+nw0=size(b0,2);
+nz0=size(c0,1);
+
+% for H-infinity performance
+b1=[0,0;0,0;-1/4,1/10;1/4,0];
+c1=[1,-1,0,0;0,0,0,0];
+d11=zeros(2,2);
+d12=[0;1/5];
+d21=[0,0];
+psysinf=ss(a,[b1,b2],[c1;c2],[d11,d12;d21,d22]);
+ginf=1;		% H-infinity norm bound
+
+nw1=size(b1,2);
+nz1=size(c1,1);
+
+% order of controller
+nk=nx;
+
+% extended state space realization for nk~=0;
+ea=blkdiag(zeros(nk),a);
+eb2=blkdiag(eye(nk),b2);
+ec2=blkdiag(eye(nk),c2);
+ed22=blkdiag(zeros(nk),d22);
+
+eb0=[zeros(nk,nw0);b0];
+ec0=[zeros(nz0,nk),c0];
+ed00=d00;
+ed02=[zeros(nz0,nk),d02];
+ed20=[zeros(nk,nw0);d20];
+
+eb1=[zeros(nk,nw1);b1];
+ec1=[zeros(nz1,nk),c1];
+ed11=d11;
+ed12=[zeros(nz1,nk),d12];
+ed21=[zeros(nk,nw1);d21];
 
 
-%%% initialization
+%%% Settings
+%% SDP solver settings (YALMIP)
+% initialization
 yalmip('clear');
 
-
-%%% SDP solver settings (YALMIP)
 opts = solvebmiOptions('yalmip',sdpsettings);
 opts.yalmip.verbose=0;
 %
 % opts.yalmip.solver='sedumi';	% SDP solver
-%
-opts.yalmip.solver='sdpt3';	% SDP solver
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.gaptol',1e-8);
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.inftol',1e-10);
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.steptol',1e-10);
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.maxit',5e2);
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.predcorr',1);
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.expon',1);
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.scale_data',0);
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.stoplevel',0);	% changed from default
-opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.printyes',0);
+% opts.yalmip.solver='sdpt3';	% SDP solver
 
-%%% Settings (solvebmi)
+
+%% Settings (solvebmi)
 % opts.method  
 %   opts.method=0: Sebe (2007)
 %   opts.method=1: Sebe (2018)
@@ -86,47 +101,141 @@ opts.yalmip=sdpsettings(opts.yalmip,'sdpt3.printyes',0);
 %   opts.method=4: Ren et al. (2021)
 %
 opts = solvebmiOptions(opts,'stoptol',5e-7);    % stop tolerance
-opts = solvebmiOptions(opts,'lcmax',2e2);		% maximum step numbers
+opts = solvebmiOptions(opts,'lcmax',20);	% maximum step numbers
 opts = solvebmiOptions(opts,'penalty',1e-4);	% regularization factor in optimization
 
 
 
 %% Definitions of decision matrices
-% Define decision matrices
-p2=sdpvar(nx,nx,'symmetric');	% Lyapunov matrix (H2)
-pinf=sdpvar(nx,nx,'symmetric');	% Lyapunov matrix (Hinf)
-k=sdpvar(nu,ny,'full');         % Controller
-R=sdpvar(nz,nz,'symmetric');    % Complement matrix (H2)
+% Lyapunov matrices (only for common Lyapunov approach)
+x2  =sdpvar(nx,nx,'symmetric');	% Lyapunov matrix (H2)
+y2  =sdpvar(nx,nx,'symmetric');
+xinf=sdpvar(nx,nx,'symmetric');	% Lyapunov matrix (Hinf)
+yinf=sdpvar(nx,nx,'symmetric');
+
+% controller decision variables
+ka=sdpvar(nx,nx,'full');
+kb=sdpvar(nx,ny,'full');
+kc=sdpvar(nu,nx,'full');
+kd=zeros(nu,ny);
+k=[ka,kb;kc,kd];
+R=sdpvar(nz0,nz0,'symmetric');    % Complement matrix (H2)
 g2=sdpvar(1,1);                 % H2 norm
 ginf=1;                         % Hinf norm
 
-% Assign initial solution
-assign(pinf,eye(nx,nx))
-assign(p2,eye(nx,nx))
-assign(k,zeros(nu,ny))
-assign(R,eye(nz,nz))
-assign(g2,0)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Initial candidate of controller
+% by common Lyapunov function approach.
+% C. Scherer, P. Gahinet and M. Chilali,
+% Multiobjective output-feedback control via LMI optimization.
+% IEEE Transactions on Automatic Control, 42, pp. 896-911, 1997.
+
+% common Lyapunov approach settings
+LMI=[x2==xinf,y2==yinf];
+
+% H2 constraints
+M0=[a*x2+b2*kc,a,b0;...
+    ka,y2*a+kb*c2,y2*b0+kb*d20;...
+    zeros(nw0,nx+nx),-eye(nw0)/2];
+M0=-(M0+M0');
+
+M1=[x2,eye(nx),(c0*x2+d02*kc)';...
+    eye(nx),y2,c0';...
+    c0*x2+d02*kc,c0,R];
+
+LMI=[LMI,M0>=0,M1>=0];
+
+% H-infinity constraints
+M2=[a*xinf+b2*kc,a+b2*kd*c2,b1+b2*kd*d21,zeros(nx,nz1);...
+    ka,yinf*a+kb*c2,yinf*b1+kb*d21,zeros(nx,nz1);...
+    zeros(nw1,nx+nx),-ginf/2*eye(nw1),zeros(nw1,nz1);...
+    c1*xinf+d12*kc,c1+d12*kd*c2,d11+d12*kd*d21,-ginf/2*eye(nz1)];
+M2=-(M2+M2');
+
+LMI=[LMI,M2>=0];
+
+optimize(LMI,trace(R),opts.yalmip);
 
 
+% retrieve optimized data
+xv=value(x2);
+yv=value(y2);
+kav=value(ka);
+kbv=value(kb);
+kcv=value(kc);
+kdv=kd;
 
-% Describe BMIs and LMIs
-Fstr1 = "[p2*(a+b2*k*c2)+(p2*(a+b2*k*c2))',p2*(b1+b2*k*d21);"+...
-        "(p2*(b1+b2*k*d21))',              -eye(nw,nw)];";
+% recover controller data
+[ku,ks,kv]=svd(eye(nx)-yv*xv);
+ku=ku*sqrtm(ks);
+kv=kv*sqrtm(ks);
 
-Fstr2 = "[pinf*(a+b2*k*c2)+(pinf*(a+b2*k*c2))',pinf*(b1+b2*k*d21),(c1+d12*k*c2)';"   +...
-        "(pinf*(b1+b2*k*d21))',                -ginf*eye(nw,nw),  (d11+d12*k*d21)';" +...
-        "c1+d12*k*c2,                          d11+d12*k*d21,     -ginf*eye(nz)]";
+% Lyapunov matrix
+p=[-kv\xv*ku,ku';ku,yv];
+p=(p+p')/2;
 
-Fstr3 = "trace(R)-g2";
+% controller data
+kav=ku\(kav-[yv,kbv]*[a,b2;c2,zeros(ny,nu)]*[xv;kcv])/(kv');
+kbv=ku\kbv;
+kcv=kcv/(kv');
 
-Fstr4 = "[-R              -(c1+d12*k*c2);"+...
-        "-(c1+d12*k*c2)'  -p2];";
+ksysLMI=ss(kav,kbv,kcv,kdv);
+kv=[kav,kbv;kcv,kdv];
 
-Flist = {Fstr1, Fstr2, Fstr3, Fstr4,"-p2","-pinf"};
+%pole(lft(psys2,ksysLMI))
+fprintf('Guaranteed H2 norm (common Lyapunov):  %9.6f\n',sqrt(trace(value(R))));
+fprintf('Achieved H2 norm (common Lyapunov):    %9.6f\n',norm(lft(psys2,  ksysLMI),2,  1e-6));
+fprintf('Achieved H-inf norm (common Lyapunov): %9.6f\n',norm(lft(psysinf,ksysLMI),inf,1e-6));
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% non-common Lyapunov function approach by solving BMI
+% decision variables
+p2  =sdpvar(nx*2,nx*2,'symmetric');	% closed-loop Lyapunov matrix (H2)
+pinf=sdpvar(nx*2,nx*2,'symmetric');	% closed-loop Lyapunov matrix (Hinf)
+
+assign(p2,  p);
+assign(pinf,p);
+assign(k,kv);
+
+
+% check code
+%{
+M0=-[p2*(ea+eb2*k*ec2)+(p2*(ea+eb2*k*ec2))',p2*(eb0+eb2*k*ed20);...
+    (p2*(eb0+eb2*k*ed20))',                -eye(nw0,nw0)];
+
+M1=[R              (ec0+ed02*k*ec2);...
+    (ec0+ed02*k*ec2)', p2];
+
+M2=-[pinf*(ea+eb2*k*ec2)+(pinf*(ea+eb2*k*ec2))',pinf*(eb1+eb2*k*ed21),(ec1+ed12*k*ec2)';...
+   (pinf*(eb1+eb2*k*ed21))',                -ginf*eye(nw1),    (ed11+ed12*k*ed21)';...
+    ec1+ed12*k*ec2,                          ed11+ed12*k*ed21,    -ginf*eye(nz1)];
+
+eig(value(M0))
+eig(value(M1))
+eig(value(M2))
+%}
+
+
+%% Describe BMIs and LMIs as string variables
+
+Fstr1 = "[p2*(ea+eb2*k*ec2)+(p2*(ea+eb2*k*ec2))',p2*(eb0+eb2*k*ed20);"+...
+        "(p2*(eb0+eb2*k*ed20))',                -eye(nw0)];";
+
+Fstr2 = "-[R              (ec0+ed02*k*ec2);"+...
+        " (ec0+ed02*k*ec2)', p2];";
+
+Fstr3 = "[pinf*(ea+eb2*k*ec2)+(pinf*(ea+eb2*k*ec2))',pinf*(eb1+eb2*k*ed21),(ec1+ed12*k*ec2)';"+...
+        "(pinf*(eb1+eb2*k*ed21))',                -ginf*eye(nw1),    (ed11+ed12*k*ed21)';"+...
+        "ec1+ed12*k*ec2,                          ed11+ed12*k*ed21,    -ginf*eye(nz1)];";
+
+Flist = {Fstr1, Fstr2, Fstr3,"-pinf"};
 
 
     
 %%% Use solvebmi() to execute ovebounding aproximation method 
+% compare all the supported methods
 lgd={'Sebe (2007)',...
      'Sebe (2018)',...
      'Shimoura & Fujii (2005)',...
@@ -146,38 +255,35 @@ for tc=1:length(lgd)
   % Execute solvebmi:
   % Decision variables       {{'p2','k'},{'pinf','k'}}
   % must be corresponding to {Fstr1,Fstr2}
-  [gg{tc},vars{tc},output{tc}] = solvebmi(Flist,{{'p2','k'},{'pinf','k'},{},{},{},{}},g2,opts);
+  [gg{tc},vars{tc},output{tc}] = solvebmi(Flist,{{'k','p2'},{},{'pinf','k'},{}},trace(R),opts);
 end
 
+% return;
 
-%%
-% figure: H2 norm
+%% Post analysis
+% figure: guaranteed H2 norm
 figure;
 for i=1:length(lgd)
-  semilogy(0:length(output{i}.ggall)-1,output{i}.ggall);
+  semilogy(0:length(output{i}.ggall)-1,sqrt(output{i}.ggall));
   hold on;
 end
 legend(lgd);
 xlabel('Number of Iteration')
-ylabel('$H_{2}$ norm','Interpreter','latex')
-title(probid);
-grid on;
-hold off;
-
-% figure: alpha for searching initial solution
-figure;
-for i=1:length(lgd)
-  plot(0:length(output{i}.alphaall)-1,output{i}.alphaall);
-  hold on;
-end
-legend(lgd);
-xlabel('Number of Iteration')
-ylabel('$\alpha$','Interpreter','latex')
-title(probid);
+ylabel('Guaranteed $H_{2}$ norm','Interpreter','latex')
+ylim([2,12]);
 grid on;
 hold off;
 
 % Achieved controllers
+ksysBMI=cell(length(lgd),1);
 for i=1:length(lgd)
-  vars{i}.k
+  ka=vars{i}.k(1:nk,1:nk);
+  kb=vars{i}.k(1:nk,(1:ny)+nk);
+  kc=vars{i}.k((1:nu)+nk,1:nk);
+  kd=vars{i}.k((1:nu)+nk,(1:ny)+nk);
+  ksysBMI{i}=ss(ka,kb,kc,kd);
+  fprintf('Method %d (%s)\n',i-1,lgd{i});
+  fprintf('  Achieved H2 norm: %9.6f\n',sqrt(output{i}.ggall(end)));
+  fprintf('  Obtained controller:\n');
+  tf(ksysBMI{i})
 end

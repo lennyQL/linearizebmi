@@ -193,15 +193,37 @@ for i=1:sizeS
     
     
     if isM
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
-                                            {Xstr,Ystr,'Z','M'},...
-                                            {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
-                                            '',lopts);
+        try
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z','M'},...
+                                                {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
+                                                '',lopts);
+        catch
+            warning("(linearizebmi) Execution failed, resize decision matricies and retry...")
+            % resize Z and M
+            [vstruct(vstep),Z,Z0dummy,M,M0dummy] = resizeZM(vstruct(vstep));
+            % execute linearizebmi
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z','M'},...
+                                                {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
+                                                '',lopts);
+        end
     elseif isZ
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
-                                            {Xstr,Ystr,'Z'},...
-                                            {'X0dummy','Y0dummy','Z0dummy'},...
-                                            '',lopts);
+        try
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z'},...
+                                                {'X0dummy','Y0dummy','Z0dummy'},...
+                                                '',lopts);
+        catch
+            warning("(linearizebmi) Execution failed, resize decision matricies and retry...")
+            % resize Z and M
+            [vstruct(vstep),Z,Z0dummy] = resizeZM(vstruct(vstep));
+            % execute linearizebmi
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z'},...
+                                                {'X0dummy','Y0dummy','Z0dummy'},...
+                                                '',lopts);
+        end
     else
         [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
                                             {Xstr,Ystr},...
@@ -681,4 +703,31 @@ termX = (lmd * froX^2) / (maxX0 * lc);
 termY = (lmd * froY^2) / (maxY0 * lc);
 termval = termX + termY;
 
+
+
+%% update matrix Z and M when input {X,Y} are {Y,X} (inversion input order)
+function [vstruct,Z,Z0dummy,M,M0dummy] = resizeZM(vstruct)
+
+% size X
+sizeX = vstruct.sizeX;
+% update info about Z
+if issymmetric(vstruct.Z)
+    Z = sdpvar(sizeX(1),sizeX(1),'symmetric');
+    sizeZ = size(Z);
+    Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'symmetric');
+else
+    Z = sdpvar(sizeX(1),sizeX(1),'full');
+    sizeZ = size(Z);
+    Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
+end
+vstruct.Z = Z;
+vstruct.sizeZ = sizeZ;
+vstruct.Z0dummy = Z0dummy;
+% update info about M
+M = sdpvar(sizeX(1),sizeX(1),'symmetric');
+sizeM = size(M);
+M0dummy = sdpvar(sizeM(1),sizeM(2),'symmetric');
+vstruct.M = M;
+vstruct.sizeM = sizeM;
+vstruct.M0dummy = M0dummy;
 

@@ -609,6 +609,11 @@ M0=eye(size(M));
 opts = linearizebmiOptions(opts,'method',4);
 [LMIauto, LMIstr] = linearizebmi(Fstr,{'P','K','G','M'},{'P0','K0','G0','M0'},'',opts)
 
+% inverse veriable order
+opts = linearizebmiOptions(opts,'method',1);
+[LMIauto, LMIstr] = linearizebmi(Fstr,{'K','P','G'},{'K0','P0','G0'},'',opts)
+opts = linearizebmiOptions(opts,'method',4);
+[LMIauto, LMIstr] = linearizebmi(Fstr,{'K','P','G','M'},{'K0','P0','G0','M0'},'',opts)
 
 
 %% パターンテストの結果
