@@ -753,6 +753,9 @@ for col=1:size(binearmatrix,1)
             for j=1:size(term,2)
                 % 項のそれぞれの変数
                 var = term{1,j};
+                if regexp(var, "-")
+                    continue
+                end
                 if regexp(var, "\'")
                     % var
                     % hetermlist: 転置あり
@@ -768,6 +771,8 @@ for col=1:size(binearmatrix,1)
                     break
                 end
             end
+            %orgtermlist
+            %hetermlist
         end
         % 転置なし行列の更新
         orgmatrix(col,row) = {orgtermlist};

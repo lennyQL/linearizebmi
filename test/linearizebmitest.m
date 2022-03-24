@@ -503,21 +503,37 @@ K=sdpvar(n,n);
 P0=rand(size(P));
 K0=rand(size(K));
 X=sdpvar(n,n);
+warning("on")
 
-
-% Fstr = "P*K+K*P";
+Fstr = "-P*K-K*P";
+% Fstr = "K*P+P*K";
 % Fstr = "P*K0*K+K*K0'*P";
 % Fstr = "P*K0*K+(P*K0*K)'";
-% Fstr = "[eye(n),P*K;(P*K)',eye(n)]";
-Fstr = "[eye(n),(P*K)';P*K,eye(n)]";
-% Fstr = "[eye(n),(P*K)';P*K0*K,P*P0*K]";
-
-warning("on")
 [LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
 [LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
 
-% linearizebmi(Fstr,{},{})
-% test = [zeros(n); eye(n)]*P*K*[eye(n) zeros(n)]
+
+Fstr = "[P*K+K*P eye(n);eye(n),eye(n)]";
+[LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
+[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
+
+Fstr = "[eye(n),P*K;K*P,eye(n)]";
+[LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
+[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
+
+Fstr = "[eye(n),K*P;P*K,eye(n)]";
+[LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
+[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
+
+Fstr = "[eye(n),(P*K)';P*K,eye(n)]";
+[LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
+[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
+
+Fstr = "[eye(n),P*K;(P*K)',eye(n)]";
+[LMIauto, ~, out] = linearizebmi(Fstr,{'P','K'},{'P0','K0'})
+[LMIauto, ~, out] = linearizebmi(Fstr,{'K','P'},{'P0','K0'})
+
+
 
 %% Webマニュアル用 (極配置)
 disp(newline)

@@ -199,7 +199,6 @@ for i=1:sizeS
                                                 {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
                                                 '',lopts);
         catch
-            warning("(linearizebmi) Execution failed, resize decision matricies and retry...")
             % resize Z and M
             [vstruct(vstep),Z,Z0dummy,M,M0dummy] = resizeZM(vstruct(vstep));
             % execute linearizebmi
@@ -215,7 +214,6 @@ for i=1:sizeS
                                                 {'X0dummy','Y0dummy','Z0dummy'},...
                                                 '',lopts);
         catch
-            warning("(linearizebmi) Execution failed, resize decision matricies and retry...")
             % resize Z and M
             [vstruct(vstep),Z,Z0dummy] = resizeZM(vstruct(vstep));
             % execute linearizebmi
