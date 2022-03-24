@@ -492,7 +492,7 @@ yalmipopts.verbose=0;         % 詳細表示
     
 %%% solvebmiのオプション:
 opts = solvebmiOptions('yalmip',yalmipopts,... % yalmipのoptimizeのためのオプション
-                       'lcmax', 200);          % 繰り返し実行する回数    
+                       'lcmax', 20);          % 繰り返し実行する回数    
 
 
 %%% BMI 最適化問題の定義
@@ -511,17 +511,20 @@ Fstr4 = "[-R              -(c1+d12*k*c2);"+...
 
 Flist = {Fstr1, Fstr2, Fstr3, Fstr4,"-p2","-pinf"};
 
-
 %%% 関数仕様test
+warning("on")
 opts.method = 0;
 opts.penalty= 0;
 % solvebmi(Flist,{{'p2','k'},{'pinf','k'},{'pinf','k'}},g,opts);
-% [gg,vars,output] = solvebmi(Flist,{'pinf','k'},g,opts);
-% [gg,vars,output] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},g,opts);
+% [gg,vars,output] = solvebmi(Flist,{'p2','k'},g,opts);
+[gg,vars,output] = solvebmi(Flist,{{'k','p2'},{'k','pinf'},{},{},{},{}},g,opts);
+% solvebmi(Flist,{{'p2','k'},{'pinf','k'}},trace(R),opts); 
 % ペナルティ項あり
 opts.method = 4;
 opts.penalty= 1e-6;
-[gg2,vars2,output2] = solvebmi(Flist,{{'p2','k'},{'pinf','k'}},g,opts);
+[gg2,vars2,output2] = solvebmi(Flist,...
+                              {{'p2','k'},{'k','pinf'},{},{},{},{}},...
+                              g,opts);
 
 
 gg
@@ -551,8 +554,10 @@ plot(alphaall,'LineWidth',1);
 xlabel('Number of Iteration')
 ylabel('$\alpha$','Interpreter','latex')
 legend('Sebe(2007)','Sebe(2018)')
-xticks(0:1:200)
 grid on
+
+
+
 
 
 

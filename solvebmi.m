@@ -22,25 +22,60 @@ function [gg, vars,outopts] = solvebmi(S, vlist, optg, opts)
 %     vars:   some data about initial solution and optimal solution
 % 
 % !TODO: 
-%   - how to input 'G' and 'opts'
+%   - how to input constant 'G' data
 %       - because 'G' will be ignored as input
+%       - in some method, fixed 'G' is required
 
 
 %% get input value
 % input as char
 
+% define S size (length of input constraints)
+% class(S)
+if isequal(class(S),'cell')
+    sizeS = length(S);
+elseif isequal(class(S),'string')
+    sizeS = 1;
+else
+    error("varargin{1} must be 'cell' or 'string' class");
+end
+% sizeS
+
+
 % (vlen): Number of decision variables set (Number of input BMIs)
+vlen = 0;
 for i=1:length(vlist)
     if length(vlist{i}) == 1
         vlen = 1;
+        sizeV = 1;
+        break
     else
-        vlen = length(vlist);
+        sizeV = length(vlist);
+        if ~isempty(vlist{i})
+            vlen = vlen + 1;
+        end
     end
 end
+
+
+% Size S and vlist must be same
+if ~isequal(sizeS,sizeV) && sizeV > 1
+    error("Length of varargin{1} and varargin{2} must be the same")
+end
+
 
 if vlen == 1 && isa(vlist{1},'char')
     vlist = {vlist};
 end
+
+% vlist for bmi
+bmivlist = {};
+for i=1:sizeV
+    if ~isempty(vlist{i})
+        bmivlist = cat(1,bmivlist,vlist(i));
+    end
+end
+
 
 % (vstruct): Info about decision variables set
 % !TODO: vstruct need to be a class (maybe)
@@ -48,10 +83,10 @@ vstruct(1:vlen) = struct;
 for i=1:vlen
     % var str
     try
-        Xstr = char(vlist{i}{1});
-        Ystr = char(vlist{i}{2});
+        Xstr = char(bmivlist{i}{1});
+        Ystr = char(bmivlist{i}{2});
     catch 
-        error('varargin{2} must be the char list');
+        error('varargin{2} must be the char list (length:2)');
     end
     vstruct(i).Xstr = Xstr;
     vstruct(i).Ystr = Ystr;
@@ -65,9 +100,17 @@ for i=1:vlen
     sizeY = size(Y);
     vstruct(i).sizeX = sizeX;
     vstruct(i).sizeY = sizeY;
-    % presolve value(dummy)
-    X0dummy = sdpvar(sizeX(1),sizeX(2));
-    Y0dummy = sdpvar(sizeY(1),sizeY(2));
+    % presolve value (dummy)
+    if issymmetric(X)
+        X0dummy = sdpvar(sizeX(1),sizeX(2),'symmetric');
+    else
+        X0dummy = sdpvar(sizeX(1),sizeX(2),'full');
+    end
+    if issymmetric(Y)
+        Y0dummy = sdpvar(sizeY(1),sizeY(2),'symmetric');
+    else
+        Y0dummy = sdpvar(sizeY(1),sizeY(2),'full');
+    end
     vstruct(i).X0dummy = X0dummy;
     vstruct(i).Y0dummy = Y0dummy;
     % info about Z
@@ -127,17 +170,6 @@ g = optg;
 
 %% linearize bmi
 
-% define S size (length of input constraints)
-% class(S)
-if isequal(class(S),'cell')
-    sizeS = length(S);
-elseif isequal(class(S),'string')
-    sizeS = 1;
-else
-    error("varargin{1} must be 'cell' or 'string' class");
-end
-% sizeS
-
 % S
 LMIlist = [];        % constraints
 sdpvarnamelist = []; % varnames
@@ -161,15 +193,35 @@ for i=1:sizeS
     
     
     if isM
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
-                                            {Xstr,Ystr,'Z','M'},...
-                                            {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
-                                            '',lopts);
+        try
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z','M'},...
+                                                {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
+                                                '',lopts);
+        catch
+            % resize Z and M
+            [vstruct(vstep),Z,Z0dummy,M,M0dummy] = resizeZM(vstruct(vstep));
+            % execute linearizebmi
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z','M'},...
+                                                {'X0dummy','Y0dummy','Z0dummy','M0dummy'},...
+                                                '',lopts);
+        end
     elseif isZ
-        [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
-                                            {Xstr,Ystr,'Z'},...
-                                            {'X0dummy','Y0dummy','Z0dummy'},...
-                                            '',lopts);
+        try
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z'},...
+                                                {'X0dummy','Y0dummy','Z0dummy'},...
+                                                '',lopts);
+        catch
+            % resize Z and M
+            [vstruct(vstep),Z,Z0dummy] = resizeZM(vstruct(vstep));
+            % execute linearizebmi
+            [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
+                                                {Xstr,Ystr,'Z'},...
+                                                {'X0dummy','Y0dummy','Z0dummy'},...
+                                                '',lopts);
+        end
     else
         [LMIauto,~,gLMI,BMI] = linearizebmi(Fstr,...
                                             {Xstr,Ystr},...
@@ -183,6 +235,10 @@ for i=1:sizeS
     
     % declare LMI constraints
     if gLMI.isbmi
+        if vlen > 1 && isempty(vlist{i})
+            error("varargin{2}{%d} must not be empty cell list.\n\n(Corresponded BMI):\n%s",i,Fstr)
+        end
+        
         vstruct(vstep).dLMI = LMIauto;
         vstruct(vstep).BMIopt = gLMI;
         vstruct(vstep).orgBMI = BMI;
@@ -191,6 +247,9 @@ for i=1:sizeS
         end
         bminum = bminum + 1;
     else
+        if vlen > 1 && ~isempty(vlist{i}) 
+            error("varargin{2}{%d} must be empty cell list '{}'.\n\n(Corresponded LMI):\n%s",i,Fstr)
+        end
         LMIlist = [LMIlist, LMIauto<=-1e-6];
     end
     
@@ -597,7 +656,6 @@ outopts.tmall = tmall;
 
 
 % optimal solution
-% sdpvarnamelist
 for i=1:length(sdpvarnamelist)
     name = sdpvarnamelist(i);
     data = evalin('caller',name);
@@ -643,4 +701,31 @@ termX = (lmd * froX^2) / (maxX0 * lc);
 termY = (lmd * froY^2) / (maxY0 * lc);
 termval = termX + termY;
 
+
+
+%% update matrix Z and M when input {X,Y} are {Y,X} (inversion input order)
+function [vstruct,Z,Z0dummy,M,M0dummy] = resizeZM(vstruct)
+
+% size X
+sizeX = vstruct.sizeX;
+% update info about Z
+if issymmetric(vstruct.Z)
+    Z = sdpvar(sizeX(1),sizeX(1),'symmetric');
+    sizeZ = size(Z);
+    Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'symmetric');
+else
+    Z = sdpvar(sizeX(1),sizeX(1),'full');
+    sizeZ = size(Z);
+    Z0dummy = sdpvar(sizeZ(1),sizeZ(2),'full');
+end
+vstruct.Z = Z;
+vstruct.sizeZ = sizeZ;
+vstruct.Z0dummy = Z0dummy;
+% update info about M
+M = sdpvar(sizeX(1),sizeX(1),'symmetric');
+sizeM = size(M);
+M0dummy = sdpvar(sizeM(1),sizeM(2),'symmetric');
+vstruct.M = M;
+vstruct.sizeM = sizeM;
+vstruct.M0dummy = M0dummy;
 
